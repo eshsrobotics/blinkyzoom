@@ -97,7 +97,7 @@ void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  updateStrip(10);
+  updatePixels(10);
 }
 
 void loop() {
@@ -180,7 +180,7 @@ void updatePixels(boolean reversed) {
     }
 
     strip.setPixelColor(a, r[a], g[a], b[a]);
-    Serial.println("Pixel " + String(a) + ": " + String(r[a]) + ", " + String(g[a]) + "," + String(b[a]))
+    Serial.println("Pixel " + String(a) + ": " + String(r[a]) + ", " + String(g[a]) + "," + String(b[a]));
   }
 }
 
