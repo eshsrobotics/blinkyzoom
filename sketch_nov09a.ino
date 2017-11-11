@@ -74,7 +74,7 @@ int greens [255];
 int blues [255];
 int locations[255];
 
-// IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across 
+// IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
