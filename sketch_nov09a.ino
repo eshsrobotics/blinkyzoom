@@ -1,6 +1,9 @@
 // -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
 #ifdef PC_TESTING
-// Simulate the Arduino libraries we're using.
+  /////////////////////////////////////////////////
+  // Simulate the Arduino libraries we're using. //
+  /////////////////////////////////////////////////
+
   #include <iostream>
   #include <sstream>
   #include <string>
@@ -37,12 +40,19 @@
   typedef bool boolean;
   _serial Serial;
 
+  void setup();
+  void updatePixels(boolean reversed);
+  float linterp(float val, float start, float end);
+
   int main() {
       setup();
       return 0;
   }
 #else
-  // This is the code that the Arduino IDE actually uses.
+  //////////////////////////////////////////////////////////
+  // This is the code that the Arduino IDE actually uses. //
+  //////////////////////////////////////////////////////////
+
   #include <Adafruit_NeoPixel.h>
   #ifdef __AVR__
     #include <avr/power.h>
@@ -54,7 +64,6 @@
 // Forward declarations.
 void sendToStrip(int begin, int end, boolean reversed);
 void addColorStop(int r_, int g_, int b_, int location_);
-int linterp(int val, int smin, int smax, int min, int max);
 void setup();
 void loop();
 
@@ -104,50 +113,6 @@ void loop() {
 
 }
 
-
-
-// void sendToStrip(int begin, int end, boolean reversed) {
-//   int length = end - begin;
-//   int r[length];
-//   int g[length];
-//   int b[length];
-//
-//   int ibegin;
-//   int iend;
-//
-//   if (!reversed) {
-//     ibegin = 0;
-//     iend = colorStopIndex;
-//   } else {
-//     ibegin = colorStopIndex;
-//     iend = 0;
-//   }
-//
-//   for (int i = ibegin; i < iend - 1; i++) {
-//     int loc = linterp(locations[i], 0, 255, 0, length);
-//     int nextLoc = linterp(locations[i + 1], 0, 255, 0, length);
-//     Serial.println(String(loc) + " to " + String(nextLoc));
-//     r[loc] = reds[i];
-//     g[loc] = greens[i];
-//     b[loc] = blues[i];
-//
-//     Serial.println(String(i) + ": " + String(r[loc]) + ", " + String(g[loc]) + ", " + String(b[loc]));
-//
-//     for (int j = loc; j < nextLoc; ++j) {
-//       r[j] = linterp(j, loc, nextLoc, r[loc], reds[i + 1]);
-//       g[j] = linterp(j, loc, nextLoc, g[loc], greens[i + 1]);
-//       b[j] = linterp(j, loc, nextLoc, b[loc], blues[i + 1]);
-//
-//       Serial.println(String(i) + ": " + String(r[j]) + ", " + String(g[j]) + ", " + String(b[j]));
-//     }
-//   }
-//
-//   for (int i = begin; i <= end; i++) {
-//     int loc = i - begin;
-//     strip.setPixelColor(i, r[loc], g[loc], b[loc]);
-//   }
-// }
-
 void updatePixels(boolean reversed) {
   const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of steps can only be up to 100% of 255
 
@@ -180,10 +145,17 @@ void updatePixels(boolean reversed) {
     }
 
     strip.setPixelColor(a, r[a], g[a], b[a]);
-    Serial.println("Pixel " + String(a) + ": " + String(r[a]) + ", " + String(g[a]) + "," + String(b[a]));
+    Serial.println("Pixel " + String(a) + ": " + String(r[a]) + ", " + String(g[a]) + ", " + String(b[a]));
   }
 }
 
+// Adds a color stop of the given color at the given index within the light
+// strip.
+//
+// It's okay if location_ is greater than the number of lights in the strip --
+// the gradient will suddenly stop as it runs off the end of the strip.  It's
+// probably not a good idea for location_ to be greater than
+// MAX_OUTPUT_LIGHTS, though.
 void addColorStop(int r_, int g_, int b_, int location_) {
   reds[colorStopIndex] = r_;
   greens[colorStopIndex] = g_;
@@ -192,6 +164,8 @@ void addColorStop(int r_, int g_, int b_, int location_) {
   colorStopIndex++;
 }
 
+// Returns a floating-point value that is val% of the way between start and
+// end.
 float linterp(float val, float start, float end) {
   return(start + val * (end -  start));
 }
