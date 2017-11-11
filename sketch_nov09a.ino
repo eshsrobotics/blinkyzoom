@@ -68,7 +68,7 @@ void loop();
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(147, PIN, NEO_GRB + NEO_KHZ800);
 
-int arrayIndex = 0; // max 255
+int colorStopIndex = 0; // max 255
 int reds [255];
 int greens [255];
 int blues [255];
@@ -88,7 +88,7 @@ void setup() {
   Serial.begin(9600);
 
   Serial.println("Color stops:");
-  for (int i = 0; i < arrayIndex; i++) {
+  for (int i = 0; i < colorStopIndex; i++) {
     Serial.println(String(i) + " at " + String(locations[i]) + ": " + String(reds[i]) + ", " + String(greens[i]) + ", " + String(blues[i]));
   }
   Serial.println("~");
@@ -97,7 +97,7 @@ void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  sendToStrip(0, 10, false);
+  updateStrip(10);
 }
 
 void loop() {
@@ -106,55 +106,92 @@ void loop() {
 
 
 
-void sendToStrip(int begin, int end, boolean reversed) {
-  int length = end - begin;
-  int r[length];
-  int g[length];
-  int b[length];
+// void sendToStrip(int begin, int end, boolean reversed) {
+//   int length = end - begin;
+//   int r[length];
+//   int g[length];
+//   int b[length];
+//
+//   int ibegin;
+//   int iend;
+//
+//   if (!reversed) {
+//     ibegin = 0;
+//     iend = colorStopIndex;
+//   } else {
+//     ibegin = colorStopIndex;
+//     iend = 0;
+//   }
+//
+//   for (int i = ibegin; i < iend - 1; i++) {
+//     int loc = linterp(locations[i], 0, 255, 0, length);
+//     int nextLoc = linterp(locations[i + 1], 0, 255, 0, length);
+//     Serial.println(String(loc) + " to " + String(nextLoc));
+//     r[loc] = reds[i];
+//     g[loc] = greens[i];
+//     b[loc] = blues[i];
+//
+//     Serial.println(String(i) + ": " + String(r[loc]) + ", " + String(g[loc]) + ", " + String(b[loc]));
+//
+//     for (int j = loc; j < nextLoc; ++j) {
+//       r[j] = linterp(j, loc, nextLoc, r[loc], reds[i + 1]);
+//       g[j] = linterp(j, loc, nextLoc, g[loc], greens[i + 1]);
+//       b[j] = linterp(j, loc, nextLoc, b[loc], blues[i + 1]);
+//
+//       Serial.println(String(i) + ": " + String(r[j]) + ", " + String(g[j]) + ", " + String(b[j]));
+//     }
+//   }
+//
+//   for (int i = begin; i <= end; i++) {
+//     int loc = i - begin;
+//     strip.setPixelColor(i, r[loc], g[loc], b[loc]);
+//   }
+// }
 
-  int ibegin;
-  int iend;
+void updatePixels(boolean reversed) {
+  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of steps can only be up to 100% of 255
 
-  if (!reversed) {
-    ibegin = 0;
-    iend = arrayIndex;
-  } else {
-    ibegin = arrayIndex;
-    iend = 0;
-  }
+  int r[MAX_OUTPUT_LIGHTS];
+  int g[MAX_OUTPUT_LIGHTS];
+  int b[MAX_OUTPUT_LIGHTS];
 
-  for (int i = ibegin; i < iend - 1; i++) {
-    int loc = linterp(locations[i], 0, 255, 0, length);
-    int nextLoc = linterp(locations[i + 1], 0, 255, 0, length);
-    Serial.println(String(loc) + " to " + String(nextLoc));
-    r[loc] = reds[i];
-    g[loc] = greens[i];
-    b[loc] = blues[i];
+  int outputLightIndex = 0;
 
-    Serial.println(String(i) + ": " + String(r[loc]) + ", " + String(g[loc]) + ", " + String(b[loc]));
+  for (int i = 0; i < colorStopIndex - 1; i++) {
+    float steps = locations[i + 1] - locations[i];
+    for (float u = 0; u <= 1; u += 1 / steps) {
+      float red = linterp(u, reds[i], reds[i + 1]);
+      float green = linterp(u, greens[i], greens[i + 1]);
+      float blue = linterp(u, blues[i], blues[i + 1]);
 
-    for (int j = loc; j < nextLoc; ++j) {
-      r[j] = linterp(j, loc, nextLoc, r[loc], reds[i + 1]);
-      g[j] = linterp(j, loc, nextLoc, g[loc], greens[i + 1]);
-      b[j] = linterp(j, loc, nextLoc, b[loc], blues[i + 1]);
-
-      Serial.println(String(i) + ": " + String(r[j]) + ", " + String(g[j]) + ", " + String(b[j]));
+      r[outputLightIndex] = int(red);
+      g[outputLightIndex] = int(green);
+      b[outputLightIndex] = int(blue);
+      outputLightIndex++;
     }
   }
 
-  for (int i = begin; i <= end; i++) {
-    int loc = i - begin;
-    strip.setPixelColor(i, r[loc], g[loc], b[loc]);
+  for (int i = 0; i < outputLightIndex; i++) {
+    int a;
+    if (!reversed) {
+      a = i;
+    } else {
+      a = outputLightIndex - 1 - i;
+    }
+
+    strip.setPixelColor(a, r[a], g[a], b[a]);
+    Serial.println("Pixel " + String(a) + ": " + String(r[a]) + ", " + String(g[a]) + "," + String(b[a]))
   }
 }
 
 void addColorStop(int r_, int g_, int b_, int location_) {
-  reds[arrayIndex] = r_;
-  greens[arrayIndex] = g_;
-  blues[arrayIndex] = b_;
-  locations[arrayIndex++] = location_;
+  reds[colorStopIndex] = r_;
+  greens[colorStopIndex] = g_;
+  blues[colorStopIndex] = b_;
+  locations[colorStopIndex] = location_;
+  colorStopIndex++;
 }
 
-int linterp(int val, int smin, int smax, int min, int max) {
-  return(min + (max - min) * ((val - smin) / (smax - smin)));
+float linterp(float val, float start, float end) {
+  return(start + val * (end -  start));
 }
