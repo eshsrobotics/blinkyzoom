@@ -37,13 +37,6 @@
   typedef bool boolean;
   _serial Serial;
 
-  // Forward declarations.
-  void sendToStrip(int begin, int end, boolean reversed);
-  void addColorStop(int r_, int g_, int b_, int location_);
-  int linterp(int val, int smin, int smax, int min, int max);
-  void setup();
-  void loop();
-
   int main() {
       setup();
       return 0;
@@ -54,9 +47,16 @@
   #ifdef __AVR__
     #include <avr/power.h>
   #endif
-#endif // #ifndef PC_TESTING
+#endif // #ifdef PC_TESTING
 
 #define PIN 6
+
+// Forward declarations.
+void sendToStrip(int begin, int end, boolean reversed);
+void addColorStop(int r_, int g_, int b_, int location_);
+int linterp(int val, int smin, int smax, int min, int max);
+void setup();
+void loop();
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -154,7 +154,6 @@ void addColorStop(int r_, int g_, int b_, int location_) {
   blues[arrayIndex] = b_;
   locations[arrayIndex++] = location_;
 }
-
 
 int linterp(int val, int smin, int smax, int min, int max) {
   return(min + (max - min) * ((val - smin) / (smax - smin)));
