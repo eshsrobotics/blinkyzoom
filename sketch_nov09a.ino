@@ -1,59 +1,59 @@
 // -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
 #ifdef PC_TESTING
 // Simulate the Arduino libraries we're using.
-#include <iostream>
-#include <sstream>
-#include <string>
-class String {
-    public:
-        String() : s() {}
-        String(const std::string& s_) : s(s_) { }
-        String(int i) : s() {
-            std::stringstream stream;
-            stream << i;
-            s = stream.str();
-        }
-        operator std::string() const { return s; }
-        friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
-        friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
+  #include <iostream>
+  #include <sstream>
+  #include <string>
+  class String {
+      public:
+          String() : s() {}
+          String(const std::string& s_) : s(s_) { }
+          String(int i) : s() {
+              std::stringstream stream;
+              stream << i;
+              s = stream.str();
+          }
+          operator std::string() const { return s; }
+          friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
+          friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
 
-    private:
-        std::string s;
-};
-class _serial {
-    public:
-        void println(const std::string& s) { std::cout << s << "\n"; }
-        void begin(int unknown) { }
-};
-class Adafruit_NeoPixel {
-    public:
-        Adafruit_NeoPixel(int, int, int) { }
-        void begin() { }
-        void show() { }
-        void setPixelColor(int position, int r, int g, int b) { }
-};
-const int NEO_GRB = 0;
-const int NEO_KHZ800 = 0;
-typedef bool boolean;
-_serial Serial;
+      private:
+          std::string s;
+  };
+  class _serial {
+      public:
+          void println(const std::string& s) { std::cout << s << "\n"; }
+          void begin(int unknown) { }
+  };
+  class Adafruit_NeoPixel {
+      public:
+          Adafruit_NeoPixel(int, int, int) { }
+          void begin() { }
+          void show() { }
+          void setPixelColor(int position, int r, int g, int b) { }
+  };
+  const int NEO_GRB = 0;
+  const int NEO_KHZ800 = 0;
+  typedef bool boolean;
+  _serial Serial;
 
-// Forward declarations.
-void sendToStrip(int begin, int end, boolean reversed);
-void addColorStop(int r_, int g_, int b_, int location_);
-int linterp(int val, int smin, int smax, int min, int max);
-void setup();
-void loop();
+  // Forward declarations.
+  void sendToStrip(int begin, int end, boolean reversed);
+  void addColorStop(int r_, int g_, int b_, int location_);
+  int linterp(int val, int smin, int smax, int min, int max);
+  void setup();
+  void loop();
 
-int main() {
-    setup();
-    return 0;
-}
+  int main() {
+      setup();
+      return 0;
+  }
 #else
-// This is the code that the Arduino IDE actually uses.
-#include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
-  #include <avr/power.h>
-#endif
+  // This is the code that the Arduino IDE actually uses.
+  #include <Adafruit_NeoPixel.h>
+  #ifdef __AVR__
+    #include <avr/power.h>
+  #endif
 #endif // #ifndef PC_TESTING
 
 #define PIN 6
