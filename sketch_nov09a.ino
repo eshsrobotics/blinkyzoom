@@ -84,8 +84,8 @@ int main() {
 // shown; adjust for color accuracy
 
 #define RED_ADJUST 1.0             // 0 to 1
-#define GREEN_ADJUST 0.55          // 0 to 1
-#define BLUE_ADJUST 0.45           // 0 to 1
+#define GREEN_ADJUST 1.0//0.55          // 0 to 1
+#define BLUE_ADJUST 1.0//0.45           // 0 to 1
 
 // The maximum PWM input will be 255, so the maximum amount of LEDs can only
 // be up to 100% of 255
@@ -121,8 +121,6 @@ struct colorStop {
 };
 
 colorStop colorStops[255];
-// colorStop rightGradient[255];
-// colorStop leftGradient[255];
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -170,7 +168,7 @@ void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  const float BRIGHTNESS = 0.5;
+  const float BRIGHTNESS = 1.0;//0.5;
   const float AMOUNT_VISIBLE = 1.0;
   const bool reversed = false;
   updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
@@ -188,6 +186,10 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
                   float brightness, bool reversed) {
 
   // sanity checks
+  if (colorStopIndex <= 0) {
+    Serial.println("You need to add at least one color stop!");
+    return;
+  }
   if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
     float temp = rangeStart;
     rangeStart = rangeEnd;
@@ -211,56 +213,57 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
 
   int outputLightIndex = 0;
 
-  for (int i = startIndex; i <= cutoffIndex; i++) {
-    int deltaIndex = endIndex - startIndex;
-    if (deltaIndex < 0) {
-      deltaIndex = -deltaIndex;
-    }
-    float deltaLocation = colorStops[i + 1].location - colorStops[i].location;
-    if (deltaLocation < 0) {
-      deltaLocation = -deltaLocation;
-    }
-    float steps = deltaLocation * deltaIndex;
-    if (steps == 0) {
-      // if steps is zero, there is no change in location and the gradient has a duplicate stop
-      break;
-    }
+  // Act as if we're going to fill the entire light strip with color, from the
+  // first color stop to the last.
+  for (int i = 0; i < colorStopIndex; ++i) {
 
-    // Serial.println("steps = " + String(steps));
-    // Serial.println("-> " + String(1.0 / steps));
-    // delay(100000);
+    colorStop previousColorStop = colorStops[i];
+    colorStop nextColorStop     = colorStops[colorStopIndex == 1 ? i : i + 1];
 
-    for (float u = 0.0; u <= 1.0; u += 1.0 / steps) {
-      float red = linterp(u, colorStops[i].red, colorStops[i + 1].red);
-      float green = linterp(u, colorStops[i].green, colorStops[i + 1].green);
-      float blue = linterp(u, colorStops[i].blue, colorStops[i + 1].blue);
+    // Remember that colorStop locations are specified using normalized values
+    // between 0 and 1 (so this algorithm works regardless of the actual
+    // number of lights in the strip, and it doesn't matter whether the color
+    // stops are evenly distributed.)
+    for (int start = round(previousColorStop.location * NUMBER_OF_PIXELS),
+             end   = round(nextColorStop.location     * NUMBER_OF_PIXELS),
+             index = start;
+         index <= end;
+         ++index) {
 
-      if (outputLightIndex < MAX_OUTPUT_LIGHTS) {
-        int index = outputLightIndex + startIndex;
-        r[index] = int(red * brightness  * RED_ADJUST);
-        g[index] = int(green * brightness * GREEN_ADJUST);
-        b[index] = int(blue * brightness * BLUE_ADJUST);
-        outputLightIndex++;
-
-        // Serial.println("Pixel " + String(index) + "before:: r:" + String(r[index]) + ", " + String(g[index]) + ", " + String(b[index]));
+      // Only fill those lights that the caller actually wanted to fill.
+      if (index < startIndex || index > cutoffIndex) {
+        continue;
       }
 
-      // Serial.println("outputLightIndex = " + String(outputLightIndex) + "; u = " + String(u));
-    } // end (for each pixel in the gradient)
-  } // (end for each color stop)
+      // Determine the percentage of the way we are along the current gradient.
+      float u = float(index - start) / (end - start);
 
-  for (int i = 0; i < cutoffIndex; i++) {
-    int a;
-    if (!reversed) {
-      a = i;
-    } else {
-      a = outputLightIndex - 1 - i;
-    }
+      // A simple linear interpolation gets the color.
+      float red   = linterp(u, previousColorStop.red,   nextColorStop.red)   * brightness * RED_ADJUST;
+      float green = linterp(u, previousColorStop.green, nextColorStop.green) * brightness * GREEN_ADJUST;
+      float blue  = linterp(u, previousColorStop.blue,  nextColorStop.blue)  * brightness * BLUE_ADJUST;
 
-    strip.setPixelColor(a, strip.Color(r[i], g[i], b[i]));
-    Serial.println("Pixel " + String(a) + ": rgb(" + String(r[i]) + ", " + String(g[i]) + ", " + String(b[i]) + ")");
+      if (reversed) {
+
+        int reversedIndex = round(linterp(u, cutoffIndex, startIndex));
+        r[reversedIndex] = round(red);
+        g[reversedIndex] = round(green);
+        b[reversedIndex] = round(blue);
+
+      } else {
+
+        r[index] = round(red);
+        g[index] = round(green);
+        b[index] = round(blue);
+
+      } // end (if not reversed)
+    } // end (for each index between the current pair of color stops)
+  } // end (for each pair of color stops in sequence)
+
+  for (int i = startIndex; i <= cutoffIndex; i++) {
+    strip.setPixelColor(i, strip.Color(r[i], g[i], b[i]));
+    Serial.println("Pixel " + String(i) + ": rgb(" + String(r[i]) + ", " + String(g[i]) + ", " + String(b[i]) + ")");
   }
-
   strip.show();
 }
 
