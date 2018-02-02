@@ -1,4 +1,4 @@
-// -*- c-basic-offset: 2; mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
+// -*- c-basic-offset: 2; rainbow-html-colors: t; mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
 
 // Forward declarations.
 struct colorStop;
@@ -224,8 +224,8 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
     // between 0 and 1 (so this algorithm works regardless of the actual
     // number of lights in the strip, and it doesn't matter whether the color
     // stops are evenly distributed.)
-    for (int start = round(previousColorStop.location * NUMBER_OF_PIXELS),
-             end   = round(nextColorStop.location     * NUMBER_OF_PIXELS),
+    for (int start = round(previousColorStop.location * (NUMBER_OF_PIXELS - 1)),
+             end   = round(nextColorStop.location     * (NUMBER_OF_PIXELS - 1)),
              index = start;
          index <= end;
          ++index) {
@@ -282,12 +282,3 @@ float linterp(float val, float start, float end) {
 int round(float f) {
   return (f >= 0 ? int(f + 0.5f) : int(f - 0.5f));
 }
-
-
-// float abs(float a) {
-//   if (a < 0) {
-//     return -a;
-//   } else {
-//     return a;
-//   }
-// }
