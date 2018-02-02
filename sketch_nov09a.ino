@@ -1,59 +1,71 @@
+// -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
+
 // Forward declarations.
-void updatePixels(bool reversed);
-void addColorStop(int r, int g, int b, float location);
+struct colorStop;
+void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
+		  float brightness, bool reversed);
+void addColorStop(colorStop stopSet[], int r, int g, int b, float loc);
 float linterp(float val, float start, float end);
 void setup();
 void loop();
-struct colorStop;
 
-// -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
+
 #ifdef PC_TESTING
 // Simulate the Arduino libraries we're using.
-  #include <iostream>
-  #include <sstream>
-  #include <string>
-  class String {
-      public:
-          String() : s() {}
-          String(const std::string& s_) : s(s_) { }
-          String(int i) : s() {
-              std::stringstream stream;
-              stream << i;
-          }
-          s = stream.str();
-          operator std::string() const { return s; }
-          friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
-          friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
+#include <iostream>
+#include <sstream>
+#include <string>
+class String {
+public:
+  String() : s() {}
+  String(const std::string& s_) : s(s_) { }
+  String(int i) : s() {
+    std::stringstream stream;
+    stream << i;
+    s = stream.str();
+  }          
+  operator std::string() const { return s; }
+  friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
+  friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
 
-      private:
-          std::string s;
-  };
-  class _serial {
-      public:
-          void println(const std::string& s) { std::cout << s << "\n"; }
-          void begin(int baud) { }
-  };
-  class Adafruit_NeoPixel {
-      public:
-          Adafruit_NeoPixel(int, int, int) { }
-          void begin() { }
-          void show() { }
-          void setPixelColor(int position, int r, int g, int b) { }
-  };
-  const int NEO_GRB = 0;
-  const int NEO_KHZ800 = 0;
-  _serial Serial;
+private:
+  std::string s;
+};
+struct color {
+  color(int r_, int g_, int b_) : r(r_), g(g_), b(b_) { }
+  int r;
+  int g;
+  int b;
+};
+class _serial {
+public:
+  void println(const std::string& s) { std::cout << s << "\n"; }
+  void begin(int baud) { }
+};
+// This doesn't light up any light or actually anything--it just makes the compile happy.
+class Adafruit_NeoPixel {
+public:
+  Adafruit_NeoPixel(int, int, int) { }
+  void begin() { }
+  void show() { }
+  void setPixelColor(int position, const color& c) { }
 
-  int main() {
-      setup();
-      return 0;
-  }
+  color Color(int r, int g, int b) { return color(r, g, b); }  
+};
+const int NEO_GRB = 0;
+const int NEO_KHZ800 = 0;
+_serial Serial;
+
+int main() {
+  setup();
+  return 0;
+}
 #else
-  // This is the code that the Arduino IDE actually uses.
-  #include <Adafruit_NeoPixel.h>
-  #ifdef __AVR__
-    #include <avr/power.h>
-  #endif
+// This is the code that the Arduino IDE actually uses.
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+#include <avr/power.h>
+#endif
 #endif // #ifdef PC_TESTING
 
 // TUNABLES:
@@ -141,8 +153,10 @@ void setup() {
   strip.show(); // Initialize all pixels to 'off'
 
   const float BRIGHTNESS = 0.5;
-  updatePixels(0.0, 0.50, 1.0, BRIGHTNESS, false);
-  updatePixels(0.50, 1.0, 1.0, BRIGHTNESS, false);
+  const float AMOUNT_VISIBLE = 1.0;
+  const bool reversed = false;
+  updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  updatePixels(0.50, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
 }
 
 void loop() {
@@ -151,7 +165,7 @@ void loop() {
 
 // rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
 // amountVisible: the amount of the gradient to display; where to cut the gradient so that the
-  // remaining of the range is blank; max 255; just the PWM input value in this case
+// remaining of the range is blank; max 255; just the PWM input value in this case
 void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float brightness, bool reversed) {
   const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255
 
