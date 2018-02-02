@@ -1,4 +1,15 @@
 // -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
+
+// Forward declarations.
+struct colorStop;
+void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
+                  float brightness, bool reversed);
+void addColorStop(colorStop stopSet[], int r, int g, int b, float loc);
+float linterp(float val, float start, float end);
+void setup();
+void loop();
+
+
 #ifdef PC_TESTING
   /////////////////////////////////////////////////
   // Simulate the Arduino libraries we're using. //
@@ -23,26 +34,30 @@
       private:
           std::string s;
   };
+struct color {
+  color(int r_, int g_, int b_) : r(r_), g(g_), b(b_) { }
+  int r;
+  int g;
+  int b;
+};
   class _serial {
       public:
           void println(const std::string& s) { std::cout << s << "\n"; }
-          void begin(int unknown) { }
+  void begin(int baud) { }
   };
+// This doesn't light up any light or actually anything--it just makes the compile happy.
   class Adafruit_NeoPixel {
       public:
           Adafruit_NeoPixel(int, int, int) { }
           void begin() { }
           void show() { }
-          void setPixelColor(int position, int r, int g, int b) { }
+  void setPixelColor(int position, const color& c) { }
+
+  color Color(int r, int g, int b) { return color(r, g, b); }
   };
   const int NEO_GRB = 0;
   const int NEO_KHZ800 = 0;
-  typedef bool boolean;
   _serial Serial;
-
-  void setup();
-  void updatePixels(boolean reversed);
-  float linterp(float val, float start, float end);
 
   int main() {
       setup();
@@ -59,13 +74,14 @@
   #endif
 #endif // #ifdef PC_TESTING
 
-#define PIN 6
+// TUNABLES:
+#define PIN 10 // digital pin number
+#define NUMBER_OF_PIXELS 10 // 92 on each robot side
+// These _ADJUST variables allow for adjustment of how brightly each color is shown; adjust for color accuracy
+#define RED_ADJUST 1.0 // 0 to 1
+#define GREEN_ADJUST 0.55 // 0 to 1
+#define BLUE_ADJUST 0.45 // 0 to 1
 
-// Forward declarations.
-void sendToStrip(int begin, int end, boolean reversed);
-void addColorStop(int r_, int g_, int b_, int location_);
-void setup();
-void loop();
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -75,13 +91,30 @@ void loop();
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(147, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_PIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 int colorStopIndex = 0; // max 255
-int reds [255];
-int greens [255];
-int blues [255];
-int locations[255];
+
+struct colorStop {
+  int red;
+  int green;
+  int blue;
+  float location; // 0.0 to 1.0
+  colorStop():
+    red(0),
+    green(0),
+    blue(0),
+    location(0.0) {}
+  colorStop(int r, int g, int b, float loc):
+    red(r),
+    green(g),
+    blue(b),
+    location(loc) {}
+};
+
+colorStop colorStops[255];
+// colorStop rightGradient[255];
+// colorStop leftGradient[255];
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -89,54 +122,131 @@ int locations[255];
 // on a live circuit...if you must, connect GND first.
 
 void setup() {
-  addColorStop(129, 255, 64, 0);
-  addColorStop(255, 244, 43, 89);
-  addColorStop(255, 177, 64, 153);
-  addColorStop(255, 7, 99, 255);
+  // // gradient for two sections of 73 LEDs
+  // addColorStop(gradient, 129, 255, 64, 0);  // rgb(129, 255, 64)
+  // addColorStop(gradient, 255, 244, 43, 18); // rgb(255, 244, 43)
+  // addColorStop(gradient, 255, 177, 64, 27); // rgb(255, 177, 64)
+  // // addColorStop(gradient, 255, 7, 99, 45); // rgb(255, 7, 99)
+  // addColorStop(gradient, 110, 0, 240, 45);  // rgb(110, 0, 240)
+
+  // // gradient to span all 147 LEDs
+  // addColorStop(129, 255, 64, 0);  // rgb(129, 255, 64)
+  // addColorStop(255, 244, 43, 59); // rgb(255, 244, 43)
+  // addColorStop(255, 177, 64, 88); // rgb(255, 177, 64)
+  // addColorStop(255, 7, 99, 146);  // rgb(255, 7, 99)
+
+  // // test gradient for 10 LEDs
+  // addColorStop(129, 255, 64, 0); // rgb(129, 255, 64)
+  // addColorStop(255, 244, 43, 3); // rgb(255, 244, 43)
+  // addColorStop(255, 177, 64, 5); // rgb(255, 177, 64)
+  // addColorStop(255, 7, 99, 8);   // rgb(255, 7, 99)
+
+  // test gradient for sections of 5 LEDs
+  addColorStop(colorStops, 255, 7, 99, 0.0);   // rgb(255, 7, 99)
+  addColorStop(colorStops, 110, 0, 240, 1.0); // rgb(110, 0, 240)
 
   Serial.begin(9600);
 
   Serial.println("Color stops:");
   for (int i = 0; i < colorStopIndex; i++) {
-    Serial.println(String(i) + " at " + String(locations[i]) + ": " + String(reds[i]) + ", " + String(greens[i]) + ", " + String(blues[i]));
+    Serial.println("#" + String(i) + " at " + String(colorStops[i].location) + ": rgb(" + String(colorStops[i].red) + ", " + String(colorStops[i].green) + ", " + String(colorStops[i].blue) + ")");
   }
+
   Serial.println("~");
   Serial.println("");
 
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  updatePixels(10);
+  const float BRIGHTNESS = 0.5;
+  const float AMOUNT_VISIBLE = 1.0;
+  const bool reversed = false;
+  updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  updatePixels(0.50, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
 }
 
 void loop() {
 
 }
 
-void updatePixels(boolean reversed) {
-  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of steps can only be up to 100% of 255
+// rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
+// amountVisible: the amount of the gradient to display; where to cut the gradient so that the
+// remaining of the range is blank; max 255; just the PWM input value in this case
+void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float brightness, bool reversed) {
+  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255
 
+  // sanity checks
+  // TODO
+  if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
+    float temp = rangeStart;
+    rangeStart = rangeEnd;
+    rangeEnd = temp;
+  }
+  if (rangeStart < 0.0) {
+    rangeStart = 0.0;
+  }
+  if (rangeEnd > 1.0) {
+    rangeEnd = 1.0;
+  }
+  if (amountVisible < 0.0) {
+    amountVisible = 0.0;
+  }
+  if (amountVisible > 1.0) {
+    amountVisible = 1.0;
+  }
+
+  int startIndex =  int(rangeStart * (NUMBER_OF_PIXELS - 1));
+  int endIndex =  int(rangeEnd * (NUMBER_OF_PIXELS - 1));
+  int cutoffIndex = int(linterp(amountVisible, startIndex, endIndex));
+
+  Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
+
+  // actual parallel arrays of color values to be sent to the strip
   int r[MAX_OUTPUT_LIGHTS];
   int g[MAX_OUTPUT_LIGHTS];
   int b[MAX_OUTPUT_LIGHTS];
 
   int outputLightIndex = 0;
 
-  for (int i = 0; i < colorStopIndex - 1; i++) {
-    float steps = locations[i + 1] - locations[i];
-    for (float u = 0; u <= 1; u += 1 / steps) {
-      float red = linterp(u, reds[i], reds[i + 1]);
-      float green = linterp(u, greens[i], greens[i + 1]);
-      float blue = linterp(u, blues[i], blues[i + 1]);
-
-      r[outputLightIndex] = int(red);
-      g[outputLightIndex] = int(green);
-      b[outputLightIndex] = int(blue);
-      outputLightIndex++;
+  for (int i = startIndex; i <= cutoffIndex; i++) {
+    int deltaIndex = endIndex - startIndex;
+    if (deltaIndex < 0) {
+      deltaIndex = -deltaIndex;
     }
-  }
+    float deltaLocation = colorStops[i + 1].location - colorStops[i].location;
+    if (deltaLocation < 0) {
+      deltaLocation = -deltaLocation;
+    }
+    float steps = deltaLocation * deltaIndex;
+    if (steps == 0) {
+      // if steps is zero, there is no change in location and the gradient has a duplicate stop
+      break;
+    }
 
-  for (int i = 0; i < outputLightIndex; i++) {
+    // Serial.println("steps = " + String(steps));
+    // Serial.println("-> " + String(1.0 / steps));
+    // delay(100000);
+
+    for (float u = 0.0; u <= 1.0; u += 1.0 / steps) {
+      float red = linterp(u, colorStops[i].red, colorStops[i + 1].red);
+      float green = linterp(u, colorStops[i].green, colorStops[i + 1].green);
+      float blue = linterp(u, colorStops[i].blue, colorStops[i + 1].blue);
+
+      if (outputLightIndex < MAX_OUTPUT_LIGHTS) {
+        int index = outputLightIndex + startIndex;
+        r[index] = int(red * brightness  * RED_ADJUST);
+        g[index] = int(green * brightness * GREEN_ADJUST);
+        b[index] = int(blue * brightness * BLUE_ADJUST);
+        outputLightIndex++;
+
+        // Serial.println("Pixel " + String(index) + "before:: r:" + String(r[index]) + ", " + String(g[index]) + ", " + String(b[index]));
+      }
+
+      // Serial.println("outputLightIndex = " + String(outputLightIndex) + "; u = " + String(u));
+    } // end (for each pixel in the gradient)
+  } // (end for each color stop)
+
+  for (int i = 0; i < cutoffIndex; i++) {
     int a;
     if (!reversed) {
       a = i;
@@ -144,24 +254,16 @@ void updatePixels(boolean reversed) {
       a = outputLightIndex - 1 - i;
     }
 
-    strip.setPixelColor(a, r[a], g[a], b[a]);
-    Serial.println("Pixel " + String(a) + ": " + String(r[a]) + ", " + String(g[a]) + ", " + String(b[a]));
+    strip.setPixelColor(a, strip.Color(r[i], g[i], b[i]));
+    Serial.println("Pixel " + String(a) + ": rgb(" + String(r[i]) + ", " + String(g[i]) + ", " + String(b[i]) + ")");
   }
+
+  strip.show();
 }
 
-// Adds a color stop of the given color at the given index within the light
-// strip.
-//
-// It's okay if location_ is greater than the number of lights in the strip --
-// the gradient will suddenly stop as it runs off the end of the strip.  It's
-// probably not a good idea for location_ to be greater than
-// MAX_OUTPUT_LIGHTS, though.
-void addColorStop(int r_, int g_, int b_, int location_) {
-  reds[colorStopIndex] = r_;
-  greens[colorStopIndex] = g_;
-  blues[colorStopIndex] = b_;
-  locations[colorStopIndex] = location_;
-  colorStopIndex++;
+void addColorStop(colorStop stopSet[], int r, int g, int b, float loc) {
+  colorStop c(r, g, b, loc);
+  stopSet[colorStopIndex++] = c;
 }
 
 // Returns a floating-point value that is val% of the way between start and
@@ -169,3 +271,11 @@ void addColorStop(int r_, int g_, int b_, int location_) {
 float linterp(float val, float start, float end) {
   return(start + val * (end -  start));
 }
+
+// float abs(float a) {
+//   if (a < 0) {
+//     return -a;
+//   } else {
+//     return a;
+//   }
+// }
