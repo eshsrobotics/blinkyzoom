@@ -1,4 +1,4 @@
-// -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
+// -*- c-basic-offset: 2; mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
 
 // Forward declarations.
 struct colorStop;
@@ -6,63 +6,62 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
                   float brightness, bool reversed);
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc);
 float linterp(float val, float start, float end);
+int round(float f);
 void setup();
 void loop();
 
 
 #ifdef PC_TESTING
-  /////////////////////////////////////////////////
-  // Simulate the Arduino libraries we're using. //
-  /////////////////////////////////////////////////
+/////////////////////////////////////////////////
+// Simulate the Arduino libraries we're using. //
+/////////////////////////////////////////////////
 
-  #include <iostream>
-  #include <sstream>
-  #include <string>
-  class String {
-      public:
-          String() : s() {}
-          String(const std::string& s_) : s(s_) { }
-          String(int i) : s() {
-              std::stringstream stream;
-              stream << i;
-              s = stream.str();
-          }
-          operator std::string() const { return s; }
-          friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
-          friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
+#include <iostream>
+#include <sstream>
+#include <string>
+class String {
+  public:
+    String() : s() {}
+    String(const std::string& s_) : s(s_) { }
+    String(int i) : s() {
+      std::stringstream stream;
+      stream << i;
+      s = stream.str();
+    }
+    operator std::string() const { return s; }
+    friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
+    friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
 
-      private:
-          std::string s;
-  };
-struct color {
-  color(int r_, int g_, int b_) : r(r_), g(g_), b(b_) { }
-  int r;
-  int g;
-  int b;
+  private:
+    std::string s;
 };
-  class _serial {
-      public:
-          void println(const std::string& s) { std::cout << s << "\n"; }
-  void begin(int baud) { }
-  };
-// This doesn't light up any light or actually anything--it just makes the compile happy.
-  class Adafruit_NeoPixel {
-      public:
-          Adafruit_NeoPixel(int, int, int) { }
-          void begin() { }
-          void show() { }
-  void setPixelColor(int position, const color& c) { }
+struct color {
+    color(int r_, int g_, int b_) : r(r_), g(g_), b(b_) { }
+    int r, g, b;
+};
+class _serial {
+  public:
+    void println(const std::string& s) { std::cout << s << "\n"; }
+    void begin(int baud) { }
+};
+// This doesn't light up any light or actually anything--it just makes the compiler happy.
+class Adafruit_NeoPixel {
+  public:
+    Adafruit_NeoPixel(int, int, int) { }
+    void begin() { }
+    void show() { }
+    void setPixelColor(int position, const color& c) { }
+    color Color(int r, int g, int b) { return color(r, g, b); }
+};
+const int NEO_GRB = 0;
+const int NEO_KHZ800 = 0;
+_serial Serial;
 
-  color Color(int r, int g, int b) { return color(r, g, b); }
-  };
-  const int NEO_GRB = 0;
-  const int NEO_KHZ800 = 0;
-  _serial Serial;
-
-  int main() {
-      setup();
-      return 0;
-  }
+int main() {
+  setup();
+  // We should probably call loop() at some point.
+  return 0;
+}
 #else
   //////////////////////////////////////////////////////////
   // This is the code that the Arduino IDE actually uses. //
@@ -74,14 +73,23 @@ struct color {
   #endif
 #endif // #ifdef PC_TESTING
 
-// TUNABLES:
-#define PIN 10 // digital pin number
-#define NUMBER_OF_PIXELS 10 // 92 on each robot side
-// These _ADJUST variables allow for adjustment of how brightly each color is shown; adjust for color accuracy
-#define RED_ADJUST 1.0 // 0 to 1
-#define GREEN_ADJUST 0.55 // 0 to 1
-#define BLUE_ADJUST 0.45 // 0 to 1
+//////////////
+// TUNABLES //
+//////////////
 
+#define PIN 10                     // digital pin number
+#define NUMBER_OF_PIXELS 10        // 92 on each robot side
+
+// These _ADJUST variables allow for adjustment of how brightly each color is
+// shown; adjust for color accuracy
+
+#define RED_ADJUST 1.0             // 0 to 1
+#define GREEN_ADJUST 0.55          // 0 to 1
+#define BLUE_ADJUST 0.45           // 0 to 1
+
+// The maximum PWM input will be 255, so the maximum amount of LEDs can only
+// be up to 100% of 255
+const int MAX_OUTPUT_LIGHTS = 255;
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -149,7 +157,11 @@ void setup() {
 
   Serial.println("Color stops:");
   for (int i = 0; i < colorStopIndex; i++) {
-    Serial.println("#" + String(i) + " at " + String(colorStops[i].location) + ": rgb(" + String(colorStops[i].red) + ", " + String(colorStops[i].green) + ", " + String(colorStops[i].blue) + ")");
+    Serial.println("#" + String(i) + " at " +
+                   String(colorStops[i].location * 100) + "%: rgb(" +
+                   String(colorStops[i].red) + ", " +
+                   String(colorStops[i].green) + ", " +
+                   String(colorStops[i].blue) + ")");
   }
 
   Serial.println("~");
@@ -172,32 +184,23 @@ void loop() {
 // rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
 // amountVisible: the amount of the gradient to display; where to cut the gradient so that the
 // remaining of the range is blank; max 255; just the PWM input value in this case
-void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float brightness, bool reversed) {
-  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255
+void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
+                  float brightness, bool reversed) {
 
   // sanity checks
-  // TODO
   if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
     float temp = rangeStart;
     rangeStart = rangeEnd;
     rangeEnd = temp;
   }
-  if (rangeStart < 0.0) {
-    rangeStart = 0.0;
-  }
-  if (rangeEnd > 1.0) {
-    rangeEnd = 1.0;
-  }
-  if (amountVisible < 0.0) {
-    amountVisible = 0.0;
-  }
-  if (amountVisible > 1.0) {
-    amountVisible = 1.0;
-  }
+  if (rangeStart < 0.0)    { rangeStart = 0.0; }
+  if (rangeEnd > 1.0)      { rangeEnd = 1.0; }
+  if (amountVisible < 0.0) { amountVisible = 0.0; }
+  if (amountVisible > 1.0) { amountVisible = 1.0; }
 
-  int startIndex =  int(rangeStart * (NUMBER_OF_PIXELS - 1));
-  int endIndex =  int(rangeEnd * (NUMBER_OF_PIXELS - 1));
-  int cutoffIndex = int(linterp(amountVisible, startIndex, endIndex));
+  int startIndex  = round(rangeStart * (NUMBER_OF_PIXELS - 1));
+  int endIndex    = round(rangeEnd   * (NUMBER_OF_PIXELS - 1));
+  int cutoffIndex = round(linterp(amountVisible, startIndex, endIndex));
 
   Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
 
@@ -271,6 +274,12 @@ void addColorStop(colorStop stopSet[], int r, int g, int b, float loc) {
 float linterp(float val, float start, float end) {
   return(start + val * (end -  start));
 }
+
+// Rounds the input to the nearest whole number,
+int round(float f) {
+  return (f >= 0 ? int(f + 0.5f) : int(f - 0.5f));
+}
+
 
 // float abs(float a) {
 //   if (a < 0) {
