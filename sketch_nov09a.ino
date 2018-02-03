@@ -83,9 +83,9 @@ int main() {
 // These _ADJUST variables allow for adjustment of how brightly each color is
 // shown; adjust for color accuracy
 
-#define RED_ADJUST 1.0             // 0 to 1
-#define GREEN_ADJUST 1.0//0.55          // 0 to 1
-#define BLUE_ADJUST 1.0//0.45           // 0 to 1
+#define RED_ADJUST   1.0           // 0 to 1
+#define GREEN_ADJUST 0.55          // 0 to 1
+#define BLUE_ADJUST  0.45          // 0 to 1
 
 // The maximum PWM input will be 255, so the maximum amount of LEDs can only
 // be up to 100% of 255
@@ -100,8 +100,6 @@ const int MAX_OUTPUT_LIGHTS = 255;
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_PIXELS, PIN, NEO_GRB + NEO_KHZ800);
-
-int colorStopIndex = 0; // max 255
 
 struct colorStop {
   int red;
@@ -120,7 +118,45 @@ struct colorStop {
     location(loc) {}
 };
 
-colorStop colorStops[255];
+// A minor wrapper to keep related data together (namely, the array of color
+// stops, its current length, and the RGB array corresponding to each pixel.)
+class colorStopList {
+  private:
+    int length_;
+    colorStop errorValue;
+    colorStop colorStops[MAX_OUTPUT_LIGHTS];
+  public:
+    colorStopList() : errorValue(6, 6, 6, 0.666) { }
+    void clear() { length_ = 0; }
+    colorStop& operator[] (int index) { return (index >= 0 && index < length_ ? colorStops[index] : errorValue); }
+    int length() const { return length_; }
+    int size() const { return length_; }
+    void add(int r, int g, int b, float location) { add(colorStop(r, g, b, location)); }
+    void add(const colorStop& c) {
+      if (length_ < MAX_OUTPUT_LIGHTS) {
+        colorStops[length_++] = c;
+
+        // Sort the list by location.
+        //
+        // For a small dataset of up to 256 gradients, the performance should
+        // be adequate.
+        int i = 1;
+        while (i < length_) {
+          int j = i;
+          while (j > 0 && colorStops[j - 1].location > colorStops[j].location) {
+            colorStop temp = colorStops[j];
+            colorStops[j] = colorStops[j  - 1];
+            colorStops[j - 1] = temp;
+            j -= 1;
+          }
+          i += 1;
+        } // end (insertion sort)
+      } // end (if we inserted a color stop)
+    }
+};
+
+
+colorStopList colorStops;
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -148,13 +184,15 @@ void setup() {
   // addColorStop(255, 7, 99, 8);   // rgb(255, 7, 99)
 
   // test gradient for sections of 5 LEDs
-  addColorStop(colorStops, 255, 7, 99, 0.0);   // rgb(255, 7, 99)
-  addColorStop(colorStops, 110, 0, 240, 1.0); // rgb(110, 0, 240)
+
+  colorStops.add(110, 0, 240, 1.0);  // rgb(110, 0, 240)
+  colorStops.add(255, 7, 99, 0.0);   // rgb(255, 7, 99)
+  //colorStops.add(150, 45, 45, 0.5);  // rgb(150, 45, 45)
 
   Serial.begin(9600);
 
   Serial.println("Color stops:");
-  for (int i = 0; i < colorStopIndex; i++) {
+  for (int i = 0; i < colorStops.length(); i++) {
     Serial.println("#" + String(i) + " at " +
                    String(colorStops[i].location * 100) + "%: rgb(" +
                    String(colorStops[i].red) + ", " +
@@ -168,7 +206,7 @@ void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  const float BRIGHTNESS = 1.0;//0.5;
+  const float BRIGHTNESS = 0.5;
   const float AMOUNT_VISIBLE = 1.0;
   const bool reversed = false;
   updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
@@ -186,7 +224,7 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
                   float brightness, bool reversed) {
 
   // sanity checks
-  if (colorStopIndex <= 0) {
+  if (colorStops.length() <= 0) {
     Serial.println("You need to add at least one color stop!");
     return;
   }
@@ -215,10 +253,10 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
 
   // Act as if we're going to fill the entire light strip with color, from the
   // first color stop to the last.
-  for (int i = 0; i < colorStopIndex; ++i) {
+  for (int i = 0; i < colorStops.length(); ++i) {
 
     colorStop previousColorStop = colorStops[i];
-    colorStop nextColorStop     = colorStops[colorStopIndex == 1 ? i : i + 1];
+    colorStop nextColorStop     = colorStops[colorStops.length() == 1 ? i : i + 1];
 
     // Remember that colorStop locations are specified using normalized values
     // between 0 and 1 (so this algorithm works regardless of the actual
@@ -265,11 +303,6 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
     Serial.println("Pixel " + String(i) + ": rgb(" + String(r[i]) + ", " + String(g[i]) + ", " + String(b[i]) + ")");
   }
   strip.show();
-}
-
-void addColorStop(colorStop stopSet[], int r, int g, int b, float loc) {
-  colorStop c(r, g, b, loc);
-  stopSet[colorStopIndex++] = c;
 }
 
 // Returns a floating-point value that is val% of the way between start and
