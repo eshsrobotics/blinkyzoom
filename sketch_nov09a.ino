@@ -136,17 +136,18 @@ class colorStopList {
 
         // Sort the list by location.
         //
-        // For a small dataset of up to 256 gradients, the performance should
-        // be adequate.
+        // For a small dataset, the performance should be adequate.  We can
+        // have up to 256 color stops, though (which would be a pathological
+        // dataset for us.)
         int i = 1;
         while (i < length_) {
-          int j = i;
-          while (j > 0 && colorStops[j - 1].location > colorStops[j].location) {
-            colorStop temp = colorStops[j];
-            colorStops[j] = colorStops[j  - 1];
-            colorStops[j - 1] = temp;
+          colorStop x = colorStops[i];
+          int j = i - 1;
+          while (j >= 0 && colorStops[j].location > x.location) {
+            colorStops[j + 1] = colorStops[j];
             j -= 1;
           }
+          colorStops[j + 1] = x;
           i += 1;
         } // end (insertion sort)
       } // end (if we inserted a color stop)
@@ -183,9 +184,9 @@ void setup() {
 
   // test gradient for sections of 5 LEDs
 
-  colorStops.add(110, 0, 240, 1.0);  // rgb(110, 0, 240)
-  colorStops.add(255, 7, 99, 0.0);   // rgb(255, 7, 99)
-  //colorStops.add(150, 45, 45, 0.5);  // rgb(150, 45, 45)
+  colorStops.add(110, 0, 240, 1.0);   // rgb(110, 0, 240)
+  colorStops.add(255, 7, 99, 0.0);    // rgb(255, 7, 99)
+  colorStops.add(255, 255, 255, 0.5); // rgb(0, 0, 255)
 
   Serial.begin(9600);
 
@@ -215,13 +216,28 @@ void loop() {
 
 }
 
-// rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
-// amountVisible: the amount of the gradient to display; where to cut the gradient so that the
-// remaining of the range is blank; max 255; just the PWM input value in this case
-void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
-                  float brightness, bool reversed) {
+// Renders the given portion of the light strip.
+//
+// @param rangeStart:    Where shall we begin the rendering?  The values range
+//                       from 0.0 (the first light in the strip) to 1.0 (the
+//                       last light in the strip.)
+// @param rangeStart:    Where shall we stop the rendering?  The values here also
+//                       range from 0.0 to 1.0.
+// @param amountVisible: What percentage of the range should we render?  1.0
+//                       means to render 100% of the range (that is, from
+//                       rangeStart to rangeEnd), while a value like 0.37
+//                       would render 37% of the range (from rangeStart to
+//                       rangeStart + 0.37 * (rangeEnd - rangeStart).)
+// @param brightness:    A constant multiplier used to reduce the intensity of
+//                       the LEDs.  A value of 1.0 uses the original color
+//                       values, while a value of 0.5 would divide the output
+//                       R, G, and B values by 2.
+// @param reversed:      If true, the final color values will be reversed
+//                       before being added to the lights.
+void updatePixels(float rangeStart, float rangeEnd, float amountVisible=1.0,
+                  float brightness=1.0, bool reversed=false) {
 
-  // sanity checks
+  // Sanity checks.
   if (colorStops.length() <= 0) {
     Serial.println("You need to add at least one color stop!");
     return;
@@ -235,6 +251,9 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
   if (rangeEnd > 1.0)      { rangeEnd = 1.0; }
   if (amountVisible < 0.0) { amountVisible = 0.0; }
   if (amountVisible > 1.0) { amountVisible = 1.0; }
+  if (brightness < 0.0)    { brightness = 0.0; }
+  if (brightness > 1.0)    { brightness = 1.0; }
+
 
   int startIndex  = round(rangeStart * (NUMBER_OF_PIXELS - 1));
   int endIndex    = round(rangeEnd   * (NUMBER_OF_PIXELS - 1));
@@ -242,7 +261,7 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
 
   Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
 
-  // actual parallel arrays of color values to be sent to the strip
+  // The actual parallel arrays of color values to be sent to the strip.
   int r[MAX_OUTPUT_LIGHTS];
   int g[MAX_OUTPUT_LIGHTS];
   int b[MAX_OUTPUT_LIGHTS];
