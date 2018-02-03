@@ -23,11 +23,9 @@ class String {
   public:
     String() : s() {}
     String(const std::string& s_) : s(s_) { }
-    String(int i) : s() {
-      std::stringstream stream;
-      stream << i;
-      s = stream.str();
-    }
+    String(int i) : s() { std::stringstream stream; stream << i; s = stream.str(); }
+    String(float f) : s() { std::stringstream stream; stream << f; s = stream.str(); }
+
     operator std::string() const { return s; }
     friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
     friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
@@ -283,7 +281,8 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
 
       if (reversed) {
 
-        int reversedIndex = round(linterp(u, cutoffIndex, startIndex));
+        float v = float(index - startIndex) / (cutoffIndex - startIndex);
+        int reversedIndex = round(linterp(v, cutoffIndex, startIndex));
         r[reversedIndex] = round(red);
         g[reversedIndex] = round(green);
         b[reversedIndex] = round(blue);
