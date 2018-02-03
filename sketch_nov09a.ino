@@ -272,9 +272,17 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible=1.0,
   // first color stop to the last.
   for (int i = 0; i < colorStops.length(); ++i) {
 
-    colorStop previousColorStop = colorStops[i];
-    colorStop nextColorStop     = colorStops[colorStops.length() == 1 ? i : i + 1];
-
+    colorStop previousColorStop, nextColorStop;
+    if (colorStops.length() == 1) {
+      // Pathological case: one color stop means constant color.
+      previousColorStop = nextColorStop = colorStops[i];
+      previousColorStop.location = 0.0;
+      nextColorStop.location = 1.0;      
+    } else {
+      previousColorStop = colorStops[i];
+      nextColorStop = colorStops[i + 1];
+    }    
+    
     // Remember that colorStop locations are specified using normalized values
     // between 0 and 1 (so this algorithm works regardless of the actual
     // number of lights in the strip, and it doesn't matter whether the color
