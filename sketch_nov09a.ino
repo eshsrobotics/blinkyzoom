@@ -6,7 +6,6 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
                   float brightness, bool reversed);
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc);
 float linterp(float val, float start, float end);
-int round(float f);
 void setup();
 void loop();
 
@@ -15,7 +14,6 @@ void loop();
 /////////////////////////////////////////////////
 // Simulate the Arduino libraries we're using. //
 /////////////////////////////////////////////////
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -54,7 +52,10 @@ class Adafruit_NeoPixel {
 const int NEO_GRB = 0;
 const int NEO_KHZ800 = 0;
 _serial Serial;
-
+// Rounds the input to the nearest whole number.  In the real environment, this is a macro.
+int round(float f) {
+  return (f >= 0 ? int(f + 0.5f) : int(f - 0.5f));
+}
 int main() {
   setup();
   // We should probably call loop() at some point.
@@ -76,7 +77,7 @@ int main() {
 //////////////
 
 #define PIN 10                     // digital pin number
-#define NUMBER_OF_PIXELS 10        // 92 on each robot side
+#define NUMBER_OF_PIXELS 90        // 92 on each robot side
 
 // These _ADJUST variables allow for adjustment of how brightly each color is
 // shown; adjust for color accuracy
@@ -87,6 +88,8 @@ int main() {
 
 // The maximum PWM input will be 255, so the maximum amount of LEDs can only
 // be up to 100% of 255
+//
+// IMPORTANT: The NUMBER_OF_PIXELS macro may not exceed this value.
 const int MAX_OUTPUT_LIGHTS = 255;
 
 // Parameter 1 = number of pixels in strip
@@ -122,40 +125,58 @@ class colorStopList {
   private:
     int length_;
     colorStop errorValue;
-    colorStop colorStops[MAX_OUTPUT_LIGHTS];
+    colorStop* colorStops;
   public:
-    colorStopList() : errorValue(6, 6, 6, 0.666) { }
-    void clear() { length_ = 0; }
-    colorStop& operator[] (int index) { return (index >= 0 && index < length_ ? colorStops[index] : errorValue); }
-    int length() const { return length_; }
-    int size() const { return length_; }
-    void add(int r, int g, int b, float location) { add(colorStop(r, g, b, location)); }
-    void add(const colorStop& c) {
-      if (length_ < MAX_OUTPUT_LIGHTS) {
-        colorStops[length_++] = c;
-
-        // Sort the list by location.
-        //
-        // For a small dataset, the performance should be adequate.  We can
-        // have up to 256 color stops, though (which would be a pathological
-        // dataset for us.)
-        int i = 1;
-        while (i < length_) {
-          colorStop x = colorStops[i];
-          int j = i - 1;
-          while (j >= 0 && colorStops[j].location > x.location) {
-            colorStops[j + 1] = colorStops[j];
-            j -= 1;
-          }
-          colorStops[j + 1] = x;
-          i += 1;
-        } // end (insertion sort)
-      } // end (if we inserted a color stop)
+    colorStopList(int maxColorStops) : errorValue(6, 6, 6, 0.666), colorStops(new colorStop[NUMBER_OF_PIXELS]), length_(0) { }
+    colorStopList(const colorStopList& other) : errorValue(6, 6, 6, 0.666), colorStops(new colorStop[NUMBER_OF_PIXELS]), length_(other.length_) {
+      for (unsigned int i = 0; i < length_; ++i) {
+        colorStops[i] = other.colorStops[i];
+      }
     }
+    colorStopList& operator= (const colorStopList& other) {
+      if (&other != this) {
+        length_ = other.length_;
+	delete[] colorStops;
+        colorStops = new colorStop[NUMBER_OF_PIXELS];
+        for (unsigned int i = 0; i < length_; ++i) {
+	  colorStops[i] = other.colorStops[i];
+        }
+      }
+      return *this;
+    }
+    ~colorStopList() { delete[] colorStops; }
+   
+      void clear() { length_ = 0; }
+      colorStop& operator[] (int index) { return (index >= 0 && index < length_ ? colorStops[index] : errorValue); }
+      int length() const { return length_; }
+      int size() const { return length_; }
+      void add(int r, int g, int b, float location) { add(colorStop(r, g, b, location)); }
+      void add(const colorStop& c) {
+        if (length_ < NUMBER_OF_PIXELS) {
+          colorStops[length_++] = c;
+
+          // Sort the list by location.
+          //
+          // For a small dataset, the performance should be adequate.  We can
+          // have up to 256 color stops, though (which would be a pathological
+          // dataset for us.)
+          int i = 1;
+          while (i < length_) {
+            colorStop x = colorStops[i];
+            int j = i - 1;
+            while (j >= 0 && colorStops[j].location > x.location) {
+              colorStops[j + 1] = colorStops[j];
+              j -= 1;
+            }
+            colorStops[j + 1] = x;
+            i += 1;
+          } // end (insertion sort)
+        } // end (if we inserted a color stop)
+      }
 };
 
 
-colorStopList colorStops;
+colorStopList colorStops(NUMBER_OF_PIXELS);
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -184,9 +205,15 @@ void setup() {
 
   // test gradient for sections of 5 LEDs
 
-  colorStops.add(110, 0, 240, 1.0);   // rgb(110, 0, 240)
-  colorStops.add(255, 7, 99, 0.0);    // rgb(255, 7, 99)
-  colorStops.add(255, 255, 255, 0.5); // rgb(0, 0, 255)
+  // colorStops.add(110, 0, 240, 1.0);   // rgb(110, 0, 240)
+  // colorStops.add(255, 7, 99, 0.0);    // rgb(255, 7, 99)
+  // colorStops.add(255, 255, 255, 0.5); // rgb(0, 0, 255)
+  colorStops.add(255, 0, 0,   0.0); 
+  // colorStops.add(255, 128, 0, 0.366);
+  colorStops.add(255, 255, 0, .9);
+  colorStops.add(0, 128,0,   0.66);  
+  colorStops.add(0, 0, 128,   0.4);  
+  colorStops.add(128, 0, 128,   1.0);  
 
   Serial.begin(9600);
 
@@ -262,9 +289,9 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible=1.0,
   Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
 
   // The actual parallel arrays of color values to be sent to the strip.
-  int r[MAX_OUTPUT_LIGHTS];
-  int g[MAX_OUTPUT_LIGHTS];
-  int b[MAX_OUTPUT_LIGHTS];
+  int r[NUMBER_OF_PIXELS];
+  int g[NUMBER_OF_PIXELS];
+  int b[NUMBER_OF_PIXELS];
 
   int outputLightIndex = 0;
 
@@ -335,9 +362,4 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible=1.0,
 // end.
 float linterp(float val, float start, float end) {
   return(start + val * (end -  start));
-}
-
-// Rounds the input to the nearest whole number,
-int round(float f) {
-  return (f >= 0 ? int(f + 0.5f) : int(f - 0.5f));
 }
