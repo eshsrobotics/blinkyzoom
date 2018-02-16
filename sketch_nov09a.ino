@@ -23,7 +23,7 @@ public:
     std::stringstream stream;
     stream << i;
     s = stream.str();
-  }          
+  }
   operator std::string() const { return s; }
   friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
   friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
@@ -50,7 +50,7 @@ public:
   void show() { }
   void setPixelColor(int position, const color& c) { }
 
-  color Color(int r, int g, int b) { return color(r, g, b); }  
+  color Color(int r, int g, int b) { return color(r, g, b); }
 };
 const int NEO_GRB = 0;
 const int NEO_KHZ800 = 0;
@@ -70,7 +70,7 @@ int main() {
 
 // TUNABLES:
 #define PIN 10 // digital pin number
-#define NUMBER_OF_PIXELS 10 // 92 on each robot side
+#define NUMBER_OF_PIXELS // 92 on each robot side
 // These _ADJUST variables allow for adjustment of how brightly each color is shown; adjust for color accuracy
 #define RED_ADJUST 1.0 // 0 to 1
 #define GREEN_ADJUST 0.55 // 0 to 1
@@ -164,13 +164,12 @@ void loop() {
 }
 
 // rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
-// amountVisible: the amount of the gradient to display; where to cut the gradient so that the
-// remaining of the range is blank; max 255; just the PWM input value in this case
+// amountVisible: the amount of the gradient to display; where to cut the gradient so that the remainder of the range is blank; max 255; just the PWM input value in this case
 void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float brightness, bool reversed) {
-  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255
+  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255; we'd like to avoid scaling the gradient up, only scale it down
 
   // sanity checks
-  // TODO
+  // TODO: complete these
   if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
     float temp = rangeStart;
     rangeStart = rangeEnd;
@@ -189,8 +188,8 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
     amountVisible = 1.0;
   }
 
-  int startIndex =  int(rangeStart * (NUMBER_OF_PIXELS - 1));
-  int endIndex =  int(rangeEnd * (NUMBER_OF_PIXELS - 1));
+  int startIndex = int(rangeStart * NUMBER_OF_PIXELS - 1);
+  int endIndex = int(rangeEnd * NUMBER_OF_PIXELS - 1);
   int cutoffIndex = int(linterp(amountVisible, startIndex, endIndex));
 
   Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
