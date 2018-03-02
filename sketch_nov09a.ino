@@ -5,9 +5,16 @@ struct colorStop;
 void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
 		  float brightness, bool reversed);
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc);
+void drawPixels(int r[], int g[], int b[], int cutoffIndex, bool reversed, int outputLightIndex);
 float linterp(float val, float start, float end);
 void setup();
 void loop();
+
+void swap(int& a, int& b) {
+	int temp = a;
+	a = b;
+	b = temp;
+}
 
 
 #ifdef PC_TESTING
@@ -70,7 +77,7 @@ int main() {
 
 // TUNABLES:
 #define PIN 10 // digital pin number
-#define NUMBER_OF_PIXELS // 92 on each robot side
+#define NUMBER_OF_PIXELS 10 // 92 on each robot side
 // These _ADJUST variables allow for adjustment of how brightly each color is shown; adjust for color accuracy
 #define RED_ADJUST 1.0 // 0 to 1
 #define GREEN_ADJUST 0.55 // 0 to 1
@@ -87,6 +94,15 @@ int main() {
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_PIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
+const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255; we'd like to avoid scaling the gradient up, only scale it down
+
+// actual parallel arrays of color values to be sent to the strip
+// hoisted to be global so that they can also be utilized by functions other than updatePixels
+int r[MAX_OUTPUT_LIGHTS];
+int g[MAX_OUTPUT_LIGHTS];
+int b[MAX_OUTPUT_LIGHTS];
+
+unsigned long initMillis;
 int colorStopIndex = 0; // max 255
 
 struct colorStop {
@@ -116,6 +132,12 @@ colorStop colorStops[255];
 // on a live circuit...if you must, connect GND first.
 
 void setup() {
+	initMillis = millis();
+
+	// cycler
+	int cyclerIteration = 0;
+
+
   // // gradient for two sections of 73 LEDs
   // addColorStop(gradient, 129, 255, 64, 0);  // rgb(129, 255, 64)
   // addColorStop(gradient, 255, 244, 43, 18); // rgb(255, 244, 43)
@@ -135,9 +157,10 @@ void setup() {
   // addColorStop(255, 177, 64, 5); // rgb(255, 177, 64)
   // addColorStop(255, 7, 99, 8);   // rgb(255, 7, 99)
 
-  // test gradient for sections of 5 LEDs
-  addColorStop(colorStops, 255, 7, 99, 0.0);   // rgb(255, 7, 99)
-  addColorStop(colorStops, 110, 0, 240, 1.0); // rgb(110, 0, 240)
+  // test gradient for 2 sections of 5 LEDs
+  addColorStop(colorStops, 255, 0, 0, 0.0); // rgb(255, 0, 0)
+	addColorStop(colorStops, 0, 255, 0, 0.5); // rgb(0, 255, 0)
+  addColorStop(colorStops, 0, 0, 255, 1.0); // rgb(0, 0, 255)
 
   Serial.begin(9600);
 
@@ -152,11 +175,18 @@ void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  const float BRIGHTNESS = 0.5;
-  const float AMOUNT_VISIBLE = 1.0;
-  const bool reversed = false;
-  updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
-  updatePixels(0.50, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+
+	// updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+	// updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  // updatePixels(0.50, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+
+	const float BRIGHTNESS = 1.0;
+	const float AMOUNT_VISIBLE = 1.0;
+	const bool reversed = false;
+
+	updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+	rotatePixels(r, g, b, 0,  NUMBER_OF_PIXELS - 1, 3);
+	drawPixels(r, g, b, NUMBER_OF_PIXELS, false, NUMBER_OF_PIXELS);
 }
 
 void loop() {
@@ -166,7 +196,6 @@ void loop() {
 // rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
 // amountVisible: the amount of the gradient to display; where to cut the gradient so that the remainder of the range is blank; max 255; just the PWM input value in this case
 void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float brightness, bool reversed) {
-  const int MAX_OUTPUT_LIGHTS = 255; // the maximum PWM input will be 255, so the maximum amount of LEDs can only be up to 100% of 255; we'd like to avoid scaling the gradient up, only scale it down
 
   // sanity checks
   // TODO: complete these
@@ -188,20 +217,15 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
     amountVisible = 1.0;
   }
 
-  int startIndex = int(rangeStart * NUMBER_OF_PIXELS - 1);
-  int endIndex = int(rangeEnd * NUMBER_OF_PIXELS - 1);
+  int startIndex = int(rangeStart * NUMBER_OF_PIXELS);
+  int endIndex = int(rangeEnd * NUMBER_OF_PIXELS);
   int cutoffIndex = int(linterp(amountVisible, startIndex, endIndex));
 
   Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
 
-  // actual parallel arrays of color values to be sent to the strip
-  int r[MAX_OUTPUT_LIGHTS];
-  int g[MAX_OUTPUT_LIGHTS];
-  int b[MAX_OUTPUT_LIGHTS];
-
   int outputLightIndex = 0;
 
-  for (int i = startIndex; i <= cutoffIndex; i++) {
+  for (int i = startIndex; i <= endIndex; i++) {
     int deltaIndex = endIndex - startIndex;
     if (deltaIndex < 0) {
       deltaIndex = -deltaIndex;
@@ -210,7 +234,7 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
     if (deltaLocation < 0) {
       deltaLocation = -deltaLocation;
     }
-    float steps = deltaLocation * deltaIndex;
+    float steps = deltaLocation * (endIndex);
     if (steps == 0) {
       // if steps is zero, there is no change in location and the gradient has a duplicate stop
       break;
@@ -225,7 +249,7 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
       float green = linterp(u, colorStops[i].green, colorStops[i + 1].green);
       float blue = linterp(u, colorStops[i].blue, colorStops[i + 1].blue);
 
-      if (outputLightIndex < MAX_OUTPUT_LIGHTS) {
+      if (outputLightIndex + startIndex < MAX_OUTPUT_LIGHTS) {
         int index = outputLightIndex + startIndex;
         r[index] = int(red * brightness  * RED_ADJUST);
         g[index] = int(green * brightness * GREEN_ADJUST);
@@ -239,12 +263,18 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
     } // end (for each pixel in the gradient)
   } // (end for each color stop)
 
-  for (int i = 0; i < cutoffIndex; i++) {
+  drawPixels(r, g, b, cutoffIndex, reversed, outputLightIndex);
+}
+
+// updatePixels() and drawPixels() are separate to allow pixels
+// to be calculated without immediately sending them to the strip.
+void drawPixels(int r[], int g[], int b[], int cutoffIndex, bool reversed, int numberOfPixels) {
+	for (int i = 0; i < cutoffIndex; i++) {
     int a;
     if (!reversed) {
       a = i;
     } else {
-      a = outputLightIndex - 1 - i;
+      a = numberOfPixels - 1 - i;
     }
 
     strip.setPixelColor(a, strip.Color(r[i], g[i], b[i]));
@@ -252,6 +282,21 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
   }
 
   strip.show();
+}
+
+void rotatePixels(int r[], int g[], int b[], int startIndex, int endIndex, int offset) {
+	for (int i = startIndex; i <= ceil((startIndex + endIndex) / 2.0); ++i) {
+		int targetIndex = i + offset;
+		if (targetIndex < startIndex) {
+			targetIndex += (endIndex - startIndex);
+		}
+		if (targetIndex > endIndex) {
+			targetIndex -= (endIndex - startIndex);
+		}
+		swap(r[i], r[targetIndex]);
+		swap(g[i], g[targetIndex]);
+		swap(b[i], b[targetIndex]);
+	}
 }
 
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc) {
