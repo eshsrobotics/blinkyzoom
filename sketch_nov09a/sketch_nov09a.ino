@@ -10,6 +10,7 @@ void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[], int s
 float linterp(float val, float start, float end);
 void setup();
 void loop();
+void removeAllColorStops();
 
 void swap(int& a, int& b) {
     int temp = a;
@@ -96,9 +97,11 @@ int main() {
 #define NUMBER_OF_PIXELS 20 // 92 on each robot side
 // These _ADJUST variables allow for adjustment of how brightly each color is shown; adjust for color accuracy
 #define RED_ADJUST 1.0 // 0 to 1
-#define GREEN_ADJUST 1.0//0.55 // 0 to 1
-#define BLUE_ADJUST 1.0//0.45 // 0 to 1
-
+#define GREEN_ADJUST 0.55 // 0 to 1
+#define BLUE_ADJUST 0.45 // 0 to 1
+#define STATE_STANDARD_ANIMATION_START 1
+#define STATE_ANIMATE 2
+#define STATE_DELAY 3
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -119,6 +122,10 @@ unsigned char g[MAX_OUTPUT_LIGHTS];
 unsigned char b[MAX_OUTPUT_LIGHTS];
 
 unsigned long initMillis;
+// This variable tracks our current state in the state machine that controls
+// animations during the loop function.
+int state;
+
 int colorStopIndex = 0; // max 255
 
 struct colorStop {
@@ -205,10 +212,40 @@ void setup() {
     Serial.println("Rotating.");
     rotatePixels(r, g, b, 0,  NUMBER_OF_PIXELS - 1, 3);
     drawPixels(r, g, b, NUMBER_OF_PIXELS, false, NUMBER_OF_PIXELS);
+    state = STATE_STANDARD_ANIMATION_START;
 }
 
 void loop() {
+  const float BRIGHTNESS = 1.0;
+  const float AMOUNT_VISIBLE = 1.0;
+  const bool reversed = false;
 
+  switch (state) {
+    // This State's purpose is to initialise a colorful rainbow gradient.
+    case STATE_STANDARD_ANIMATION_START:
+      removeAllColorStops();
+      addColorStop(colorStops, 255, 60, 0, 0.0); // rgb(255, 60, 0)
+      addColorStop(colorStops, 0, 255, 0, 0.33); // rgb(0, 255, 0)
+      addColorStop(colorStops, 0, 100, 255, 0.66); // rgb(0, 100, 255)
+      addColorStop(colorStops, 255, 255, 0, 1.0); // rgb(255, 255,0)
+      updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+      state = STATE_ANIMATE;
+      break;
+
+    // This state is responsible for taking these color values,
+    // sending them to the Arduino and rotating them.
+    case STATE_ANIMATE:
+      rotatePixels(r, g, b, 0,  NUMBER_OF_PIXELS - 1, 1);
+      drawPixels(r, g, b, NUMBER_OF_PIXELS, false, NUMBER_OF_PIXELS);
+      state = STATE_DELAY;
+      break;
+
+    // The purpose of this state is to wait
+    case STATE_DELAY:
+
+      break;
+
+  }
 }
 
 // rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
@@ -344,6 +381,10 @@ void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[], int s
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc) {
     colorStop c(r, g, b, loc);
     stopSet[colorStopIndex++] = c;
+}
+
+void removeAllColorStops() {
+    colorStopIndex = 0;
 }
 
 float linterp(float val, float start, float end) {
