@@ -15,94 +15,97 @@ void loop();
 void removeAllColorStops();
 
 void swap(int& a, int& b) {
-    int temp = a;
-    a = b;
-    b = temp;
+  int temp = a;
+  a = b;
+  b = temp;
 }
 
 
 #ifdef PC_TESTING
-/////////////////////////////////////////////////
-// Simulate the Arduino libraries we're using. //
-/////////////////////////////////////////////////
 
-#include <iostream>
-#include <ostream>
-#include <sstream>
-#include <string>
-#include <cmath>
-#include <ctime>
-using std::ceil;
+  /////////////////////////////////////////////////
+  // Simulate the Arduino libraries we're using. //
+  /////////////////////////////////////////////////
 
-// Returns the number of milliseconds since the program began, just like the
-// real millis() function does (see
-// https://www.arduino.cc/reference/en/language/functions/time/millis/).
-//
-// This function isn't thread-safe, though it could easily be made to be
-// with a state argument.
-double millis() {
+  #include <iostream>
+  #include <ostream>
+  #include <sstream>
+  #include <string>
+  #include <cmath>
+  #include <ctime>
+  using std::ceil;
+
+  // Returns the number of milliseconds since the program began, just like the
+  // real millis() function does (see
+  // https://www.arduino.cc/reference/en/language/functions/time/millis/).
+  //
+  // This function isn't thread-safe, though it could easily be made to be
+  // with a state argument.
+  double millis() {
     static clock_t lastClockTicks = 0;
     if (lastClockTicks == 0) {
-        return 0;
+      return 0;
     }
     double oldClockTicks = lastClockTicks;
     lastClockTicks = clock();
     return (lastClockTicks - oldClockTicks) / (1000.0 * CLOCKS_PER_SEC);
-}
+  }
 
-class String {
-public:
-    String() : s() {}
-    String(const std::string& s_) : s(s_) { }
-    String(int i) : s() { std::stringstream stream; stream << i; s = stream.str(); }
-    String(float f) : s() { std::stringstream stream; stream << f; s = stream.str(); }
-    String(unsigned long l) : s() { std::stringstream stream; stream << l; s = stream.str(); }
+  class String {
+    public:
+      String() : s() {}
+      String(const std::string& s_) : s(s_) { }
+      String(int i) : s() { std::stringstream stream; stream << i; s = stream.str(); }
+      String(float f) : s() { std::stringstream stream; stream << f; s = stream.str(); }
+      String(unsigned long l) : s() { std::stringstream stream; stream << l; s = stream.str(); }
 
-    operator std::string() const { return s; }
-    friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
-    friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
+      operator std::string() const { return s; }
+      friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
+      friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
 
-private:
-    std::string s;
-};
-struct color {
-    color(int r_, int g_, int b_) : r(r_), g(g_), b(b_) { }
-    int r;
-    int g;
-    int b;
-};
-class _serial {
-public:
-    void println(const std::string& s) { std::cout << s << std::endl; }
-    void begin(int baud) { }
-};
-// This doesn't light up any light or actually anything--it just makes the compiler happy.
-class Adafruit_NeoPixel {
-public:
-    Adafruit_NeoPixel(int, int, int) { }
-    void begin() { }
-    void show() { }
-    void setPixelColor(int position, const color& c) { }
+    private:
+      std::string s;
+  };
+  struct color {
+      color(int r_, int g_, int b_) : r(r_), g(g_), b(b_) { }
+      int r;
+      int g;
+      int b;
+  };
+  class _serial {
+    public:
+      void println(const std::string& s) { std::cout << s << std::endl; }
+      void begin(int baud) { }
+  };
+  // This doesn't light up any light or actually anything--it just makes the compiler happy.
+  class Adafruit_NeoPixel {
+    public:
+      Adafruit_NeoPixel(int, int, int) { }
+      void begin() { }
+      void show() { }
+      void setPixelColor(int position, const color& c) { }
 
-    color Color(int r, int g, int b) { return color(r, g, b); }
-};
-const int NEO_GRB = 0;
-const int NEO_KHZ800 = 0;
-_serial Serial;
+      color Color(int r, int g, int b) { return color(r, g, b); }
+  };
+  const int NEO_GRB = 0;
+  const int NEO_KHZ800 = 0;
+  _serial Serial;
 
-int main() {
+  int main() {
     setup();
     return 0;
-}
+  }
+
 #else
 
-//////////////////////////////////////////////////////////
-// This is the code that the Arduino IDE actually uses. //
-//////////////////////////////////////////////////////////
-#include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
-#include <avr/power.h>
-#endif
+  //////////////////////////////////////////////////////////
+  // This is the code that the Arduino IDE actually uses. //
+  //////////////////////////////////////////////////////////
+  #include <Adafruit_NeoPixel.h>
+  #ifdef __AVR__
+  #include <avr/power.h>
+  #endif
+
 #endif // #ifdef PC_TESTING
 
 //////////////
@@ -149,15 +152,15 @@ struct colorStop {
     int blue;
     float location; // 0.0 to 1.0
     colorStop():
-        red(0),
-        green(0),
-        blue(0),
-        location(0.0) {}
+      red(0),
+      green(0),
+      blue(0),
+      location(0.0) {}
     colorStop(int r, int g, int b, float loc):
-        red(r),
-        green(g),
-        blue(b),
-        location(loc) {}
+      red(r),
+      green(g),
+      blue(b),
+      location(loc) {}
 };
 
 colorStop colorStops[255];
@@ -170,64 +173,64 @@ colorStop colorStops[255];
 // on a live circuit...if you must, connect GND first.
 
 void setup() {
-    initMillis = millis();
+  initMillis = millis();
 
-    // cycler
-    int cyclerIteration = 0;
-
-
-    // // gradient for two sections of 73 LEDs
-    // addColorStop(gradient, 129, 255, 64, 0);  // rgb(129, 255, 64)
-    // addColorStop(gradient, 255, 244, 43, 18); // rgb(255, 244, 43)
-    // addColorStop(gradient, 255, 177, 64, 27); // rgb(255, 177, 64)
-    // // addColorStop(gradient, 255, 7, 99, 45); // rgb(255, 7, 99)
-    // addColorStop(gradient, 110, 0, 240, 45);  // rgb(110, 0, 240)
-
-    // // gradient to span all 147 LEDs
-    // addColorStop(129, 255, 64, 0);  // rgb(129, 255, 64)
-    // addColorStop(255, 244, 43, 59); // rgb(255, 244, 43)
-    // addColorStop(255, 177, 64, 88); // rgb(255, 177, 64)
-    // addColorStop(255, 7, 99, 146);  // rgb(255, 7, 99)
-
-    // // test gradient for 10 LEDs
-    // addColorStop(129, 255, 64, 0); // rgb(129, 255, 64)
-    // addColorStop(255, 244, 43, 3); // rgb(255, 244, 43)
-    // addColorStop(255, 177, 64, 5); // rgb(255, 177, 64)
-    // addColorStop(255, 7, 99, 8);   // rgb(255, 7, 99)
-
-    // test gradient for 2 sections of 5 LEDs
-    addColorStop(colorStops, 255, 0, 0, 0.0); // rgb(255, 0, 0)
-    addColorStop(colorStops, 0, 255, 0, 0.5); // rgb(0, 255, 0)
-    addColorStop(colorStops, 0, 0, 255, 0.7); // rgb(0, 0, 255)
-    addColorStop(colorStops, 255, 255, 0, 1.0); // rgb(255, 255,0)
-
-    Serial.begin(9600);
-
-    Serial.println("Color stops:");
-    for (int i = 0; i < colorStopIndex; i++) {
-        Serial.println("#" + String(i) + " at " + String(colorStops[i].location) + ": rgb(" + String(colorStops[i].red) + ", " + String(colorStops[i].green) + ", " + String(colorStops[i].blue) + ")");
-    }
-
-    Serial.println("~");
-    Serial.println("");
-
-    strip.begin();
-    strip.show(); // Initialize all pixels to 'off'
+  // cycler
+  int cyclerIteration = 0;
 
 
-    // updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
-    // updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
-    // updatePixels(0.50, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  // // gradient for two sections of 73 LEDs
+  // addColorStop(gradient, 129, 255, 64, 0);  // rgb(129, 255, 64)
+  // addColorStop(gradient, 255, 244, 43, 18); // rgb(255, 244, 43)
+  // addColorStop(gradient, 255, 177, 64, 27); // rgb(255, 177, 64)
+  // // addColorStop(gradient, 255, 7, 99, 45); // rgb(255, 7, 99)
+  // addColorStop(gradient, 110, 0, 240, 45);  // rgb(110, 0, 240)
 
-    const float BRIGHTNESS = 1.0;
-    const float AMOUNT_VISIBLE = 1.0;
-    const bool reversed = false;
+  // // gradient to span all 147 LEDs
+  // addColorStop(129, 255, 64, 0);  // rgb(129, 255, 64)
+  // addColorStop(255, 244, 43, 59); // rgb(255, 244, 43)
+  // addColorStop(255, 177, 64, 88); // rgb(255, 177, 64)
+  // addColorStop(255, 7, 99, 146);  // rgb(255, 7, 99)
 
-    updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
-    Serial.println("Rotating.");
-    rotatePixels(r, g, b, 0,  NUMBER_OF_PIXELS - 1, 3);
-    drawPixels(r, g, b, NUMBER_OF_PIXELS, false, NUMBER_OF_PIXELS);
-    state = STATE_STANDARD_ANIMATION_START;
+  // // test gradient for 10 LEDs
+  // addColorStop(129, 255, 64, 0); // rgb(129, 255, 64)
+  // addColorStop(255, 244, 43, 3); // rgb(255, 244, 43)
+  // addColorStop(255, 177, 64, 5); // rgb(255, 177, 64)
+  // addColorStop(255, 7, 99, 8);   // rgb(255, 7, 99)
+
+  // test gradient for 2 sections of 5 LEDs
+  addColorStop(colorStops, 255, 0, 0, 0.0); // rgb(255, 0, 0)
+  addColorStop(colorStops, 0, 255, 0, 0.5); // rgb(0, 255, 0)
+  addColorStop(colorStops, 0, 0, 255, 0.7); // rgb(0, 0, 255)
+  addColorStop(colorStops, 255, 255, 0, 1.0); // rgb(255, 255,0)
+
+  Serial.begin(9600);
+
+  Serial.println("Color stops:");
+  for (int i = 0; i < colorStopIndex; i++) {
+    Serial.println("#" + String(i) + " at " + String(colorStops[i].location) + ": rgb(" + String(colorStops[i].red) + ", " + String(colorStops[i].green) + ", " + String(colorStops[i].blue) + ")");
+  }
+
+  Serial.println("~");
+  Serial.println("");
+
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+
+
+  // updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  // updatePixels(0.0, 0.50, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  // updatePixels(0.50, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+
+  const float BRIGHTNESS = 1.0;
+  const float AMOUNT_VISIBLE = 1.0;
+  const bool reversed = false;
+
+  updatePixels(0.0, 1.0, AMOUNT_VISIBLE, BRIGHTNESS, reversed);
+  Serial.println("Rotating.");
+  rotatePixels(r, g, b, 0,  NUMBER_OF_PIXELS - 1, 3);
+  drawPixels(r, g, b, NUMBER_OF_PIXELS, false, NUMBER_OF_PIXELS);
+  state = STATE_STANDARD_ANIMATION_START;
 }
 
 void loop() {
@@ -247,15 +250,15 @@ void loop() {
       state = STATE_ANIMATE;
       break;
 
-    // This state is responsible for taking these color values,
-    // sending them to the Arduino and rotating them.
+      // This state is responsible for taking these color values,
+      // sending them to the Arduino and rotating them.
     case STATE_ANIMATE:
       rotatePixels(r, g, b, 0,  NUMBER_OF_PIXELS - 1, 1);
       drawPixels(r, g, b, NUMBER_OF_PIXELS, false, NUMBER_OF_PIXELS);
       state = STATE_DELAY;
       break;
 
-    // The purpose of this state is to wait
+      // The purpose of this state is to wait
     case STATE_DELAY:
 
       break;
@@ -288,72 +291,72 @@ void loop() {
 void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
                   float brightness, bool reversed) {
 
-    // sanity checks
-    if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
-        float temp = rangeStart;
-        rangeStart = rangeEnd;
-        rangeEnd = temp;
+  // sanity checks
+  if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
+    float temp = rangeStart;
+    rangeStart = rangeEnd;
+    rangeEnd = temp;
+  }
+  if (rangeStart < 0.0) {
+    rangeStart = 0.0;
+  }
+  if (rangeEnd > 1.0) {
+    rangeEnd = 1.0;
+  }
+  if (amountVisible < 0.0) {
+    amountVisible = 0.0;
+  }
+  if (amountVisible > 1.0) {
+    amountVisible = 1.0;
+  }
+
+  int startIndex  = int(rangeStart * NUMBER_OF_PIXELS);
+  int endIndex    = int(rangeEnd   * NUMBER_OF_PIXELS);
+  int cutoffIndex = int(linterp(amountVisible, startIndex, endIndex));
+
+  Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
+
+  int outputLightIndex = 0;
+
+  for (int i = startIndex; i <= endIndex; i++) {
+    int deltaIndex = endIndex - startIndex;
+    if (deltaIndex < 0) {
+      deltaIndex = -deltaIndex;
     }
-    if (rangeStart < 0.0) {
-        rangeStart = 0.0;
+    float deltaLocation = colorStops[i + 1].location - colorStops[i].location;
+    if (deltaLocation < 0) {
+      deltaLocation = -deltaLocation;
     }
-    if (rangeEnd > 1.0) {
-        rangeEnd = 1.0;
-    }
-    if (amountVisible < 0.0) {
-        amountVisible = 0.0;
-    }
-    if (amountVisible > 1.0) {
-        amountVisible = 1.0;
+    float steps = deltaLocation * (endIndex);
+    if (steps == 0) {
+      // if steps is zero, there is no change in location and the gradient has a duplicate stop
+      break;
     }
 
-    int startIndex  = int(rangeStart * NUMBER_OF_PIXELS);
-    int endIndex    = int(rangeEnd   * NUMBER_OF_PIXELS);
-    int cutoffIndex = int(linterp(amountVisible, startIndex, endIndex));
+    // Serial.println("steps = " + String(steps));
+    // Serial.println("-> " + String(1.0 / steps));
+    // delay(100000);
 
-    Serial.println("Range: " + String(startIndex) + " to " + String(endIndex) + ", cutoff at " + String(cutoffIndex));
+    for (float u = 0.0; u <= 1.0; u += 1.0 / steps) {
+      float red = linterp(u, colorStops[i].red, colorStops[i + 1].red);
+      float green = linterp(u, colorStops[i].green, colorStops[i + 1].green);
+      float blue = linterp(u, colorStops[i].blue, colorStops[i + 1].blue);
 
-    int outputLightIndex = 0;
+      if (outputLightIndex + startIndex < MAX_OUTPUT_LIGHTS) {
+        int index = outputLightIndex + startIndex;
+        r[index] = int(red * brightness  * RED_ADJUST);
+        g[index] = int(green * brightness * GREEN_ADJUST);
+        b[index] = int(blue * brightness * BLUE_ADJUST);
+        outputLightIndex++;
 
-    for (int i = startIndex; i <= endIndex; i++) {
-        int deltaIndex = endIndex - startIndex;
-        if (deltaIndex < 0) {
-            deltaIndex = -deltaIndex;
-        }
-        float deltaLocation = colorStops[i + 1].location - colorStops[i].location;
-        if (deltaLocation < 0) {
-            deltaLocation = -deltaLocation;
-        }
-        float steps = deltaLocation * (endIndex);
-        if (steps == 0) {
-            // if steps is zero, there is no change in location and the gradient has a duplicate stop
-            break;
-        }
+        // Serial.println("Pixel " + String(index) + "before:: r:" + String(r[index]) + ", " + String(g[index]) + ", " + String(b[index]));
+      }
 
-        // Serial.println("steps = " + String(steps));
-        // Serial.println("-> " + String(1.0 / steps));
-        // delay(100000);
+      // Serial.println("outputLightIndex = " + String(outputLightIndex) + "; u = " + String(u));
+    } // end (for each pixel in the gradient)
+  } // (end for each color stop)
 
-        for (float u = 0.0; u <= 1.0; u += 1.0 / steps) {
-            float red = linterp(u, colorStops[i].red, colorStops[i + 1].red);
-            float green = linterp(u, colorStops[i].green, colorStops[i + 1].green);
-            float blue = linterp(u, colorStops[i].blue, colorStops[i + 1].blue);
-
-            if (outputLightIndex + startIndex < MAX_OUTPUT_LIGHTS) {
-                int index = outputLightIndex + startIndex;
-                r[index] = int(red * brightness  * RED_ADJUST);
-                g[index] = int(green * brightness * GREEN_ADJUST);
-                b[index] = int(blue * brightness * BLUE_ADJUST);
-                outputLightIndex++;
-
-                // Serial.println("Pixel " + String(index) + "before:: r:" + String(r[index]) + ", " + String(g[index]) + ", " + String(b[index]));
-            }
-
-            // Serial.println("outputLightIndex = " + String(outputLightIndex) + "; u = " + String(u));
-        } // end (for each pixel in the gradient)
-    } // (end for each color stop)
-
-    drawPixels(r, g, b, cutoffIndex, reversed, outputLightIndex);
+  drawPixels(r, g, b, cutoffIndex, reversed, outputLightIndex);
 }
 
 // Renders the RGB values from the given parallel arrays onto the actual light
@@ -381,19 +384,19 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
 //                       to NUMBER_OF_PIXELS.)
 
 void drawPixels(unsigned char r[], unsigned char g[], unsigned char b[], int cutoffIndex, bool reversed, int numberOfPixels) {
-    for (int i = 0; i < cutoffIndex; i++) {
-        int a;
-        if (!reversed) {
-            a = i;
-        } else {
-            a = numberOfPixels - 1 - i;
-        }
-
-        strip.setPixelColor(a, strip.Color(r[i], g[i], b[i]));
-        Serial.println("Pixel " + String(a) + ": rgb(" + String(r[i]) + ", " + String(g[i]) + ", " + String(b[i]) + ")");
+  for (int i = 0; i < cutoffIndex; i++) {
+    int a;
+    if (!reversed) {
+      a = i;
+    } else {
+      a = numberOfPixels - 1 - i;
     }
 
-    strip.show();
+    strip.setPixelColor(a, strip.Color(r[i], g[i], b[i]));
+    Serial.println("Pixel " + String(a) + ": rgb(" + String(r[i]) + ", " + String(g[i]) + ", " + String(b[i]) + ")");
+  }
+
+  strip.show();
 }
 
 // Shifts the R, G, and B values within the given range of the given parallel
@@ -413,61 +416,53 @@ void drawPixels(unsigned char r[], unsigned char g[], unsigned char b[], int cut
 
 void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[],
                   int startIndex, int endIndex, int offset) {
-    // To save space, rotate one color channel at a time.
-    unsigned char buffer[MAX_OUTPUT_LIGHTS];
-    for (int i = 0; i<MAX_OUTPUT_LIGHTS; ++i) { buffer[i]=99; }
+  // To save space, rotate one color channel at a time.
+  unsigned char buffer[MAX_OUTPUT_LIGHTS];
+  for (int i = 0; i<MAX_OUTPUT_LIGHTS; ++i) { buffer[i]=99; }
 
-    for (int channel = 0; channel < 3; ++channel) {
-        unsigned char* source = 0;
-        switch (channel) {
-            case 0:
-                source = r; break;
-            case 1:
-                source = g; break;
-            case 2:
-                source = b; break;
-        }
-
-        // Place all the pixels in the appropriate locations within the temporary buffer.
-        for (int i = startIndex; i <= endIndex; ++i) {
-
-            // The target index wraps around, whether the offset is
-            // positive or negative.
-            int targetIndex = i + offset;
-            if (targetIndex < startIndex) {
-                targetIndex += (endIndex - startIndex + 1);
-            }
-            if (targetIndex > endIndex) {
-                targetIndex -= (endIndex - startIndex + 1);
-            }
-            // Serial.println("i = " + String(i) + ", offset = " + String(offset) + ", targetIndex = " + String(targetIndex));
-            buffer[targetIndex] = source[i];
-        }
-
-        // Copy the temporary buffer back to the source.
-        for (int i = startIndex; i <= endIndex; ++i) {
-            source[i] = buffer[i];
-        }
+  for (int channel = 0; channel < 3; ++channel) {
+    unsigned char* source = 0;
+    switch (channel) {
+      case 0:
+        source = r; break;
+      case 1:
+        source = g; break;
+      case 2:
+        source = b; break;
     }
+
+    // Place all the pixels in the appropriate locations within the temporary buffer.
+    for (int i = startIndex; i <= endIndex; ++i) {
+
+      // The target index wraps around, whether the offset is
+      // positive or negative.
+      int targetIndex = i + offset;
+      if (targetIndex < startIndex) {
+        targetIndex += (endIndex - startIndex + 1);
+      }
+      if (targetIndex > endIndex) {
+        targetIndex -= (endIndex - startIndex + 1);
+      }
+      // Serial.println("i = " + String(i) + ", offset = " + String(offset) + ", targetIndex = " + String(targetIndex));
+      buffer[targetIndex] = source[i];
+    }
+
+    // Copy the temporary buffer back to the source.
+    for (int i = startIndex; i <= endIndex; ++i) {
+      source[i] = buffer[i];
+    }
+  }
 }
 
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc) {
-    colorStop c(r, g, b, loc);
-    stopSet[colorStopIndex++] = c;
+  colorStop c(r, g, b, loc);
+  stopSet[colorStopIndex++] = c;
 }
 
 void removeAllColorStops() {
-    colorStopIndex = 0;
+  colorStopIndex = 0;
 }
 
 float linterp(float val, float start, float end) {
-    return(start + val * (end -  start));
+  return(start + val * (end -  start));
 }
-
-// float abs(float a) {
-//   if (a < 0) {
-//     return -a;
-//   } else {
-//     return a;
-//   }
-// }
