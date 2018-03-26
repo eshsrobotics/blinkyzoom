@@ -1,12 +1,14 @@
-// -*- mode: C++; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
+// -*- mode: C++; c-basic-offset: 2; rainbow-html-colors: t; compile-command: "g++ -DPC_TESTING -x c++ ./sketch_nov09a.ino -o sketch" -*-
 
 // Forward declarations.
 struct colorStop;
 void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
                   float brightness, bool reversed);
 void addColorStop(colorStop stopSet[], int r, int g, int b, float loc);
-void drawPixels(unsigned char r[], unsigned char g[], unsigned char b[], int cutoffIndex, bool reversed, int outputLightIndex);
-void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[], int startIndex, int endIndex, int offset);
+void drawPixels(unsigned char r[], unsigned char g[], unsigned char b[],
+                int cutoffIndex, bool reversed, int outputLightIndex);
+void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[],
+                  int startIndex, int endIndex, int offset);
 float linterp(float val, float start, float end);
 void setup();
 void loop();
@@ -20,7 +22,10 @@ void swap(int& a, int& b) {
 
 
 #ifdef PC_TESTING
-// Simulate the Arduino libraries we're using.
+/////////////////////////////////////////////////
+// Simulate the Arduino libraries we're using. //
+/////////////////////////////////////////////////
+
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -29,6 +34,12 @@ void swap(int& a, int& b) {
 #include <ctime>
 using std::ceil;
 
+// Returns the number of milliseconds since the program began, just like the
+// real millis() function does (see
+// https://www.arduino.cc/reference/en/language/functions/time/millis/).
+//
+// This function isn't thread-safe, though it could easily be made to be
+// with a state argument.
 double millis() {
     static clock_t lastClockTicks = 0;
     if (lastClockTicks == 0) {
@@ -43,11 +54,10 @@ class String {
 public:
     String() : s() {}
     String(const std::string& s_) : s(s_) { }
-    String(int i) : s() {
-        std::stringstream stream;
-        stream << i;
-        s = stream.str();
-    }
+    String(int i) : s() { std::stringstream stream; stream << i; s = stream.str(); }
+    String(float f) : s() { std::stringstream stream; stream << f; s = stream.str(); }
+    String(unsigned long l) : s() { std::stringstream stream; stream << l; s = stream.str(); }
+
     operator std::string() const { return s; }
     friend std::string operator+ (const String& left, const std::string& right) { return left.s + right; }
     friend std::string operator+ (const std::string& left, const String& right) { return left + right.s; }
@@ -66,7 +76,7 @@ public:
     void println(const std::string& s) { std::cout << s << std::endl; }
     void begin(int baud) { }
 };
-// This doesn't light up any light or actually anything--it just makes the compile happy.
+// This doesn't light up any light or actually anything--it just makes the compiler happy.
 class Adafruit_NeoPixel {
 public:
     Adafruit_NeoPixel(int, int, int) { }
@@ -85,14 +95,19 @@ int main() {
     return 0;
 }
 #else
-// This is the code that the Arduino IDE actually uses.
+
+//////////////////////////////////////////////////////////
+// This is the code that the Arduino IDE actually uses. //
+//////////////////////////////////////////////////////////
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
 #include <avr/power.h>
 #endif
 #endif // #ifdef PC_TESTING
 
-// TUNABLES:
+//////////////
+// TUNABLES //
+//////////////
 #define PIN 10 // digital pin number
 #define NUMBER_OF_PIXELS 20 // 92 on each robot side
 // These _ADJUST variables allow for adjustment of how brightly each color is shown; adjust for color accuracy
@@ -248,12 +263,32 @@ void loop() {
   }
 }
 
-// rangeStart and rangeEnd: the portion of the strip on which to display the gradient; max 0 to 1
-// amountVisible: the amount of the gradient to display; where to cut the gradient so that the remainder of the range is blank; max 255; just the PWM input value in this case
-void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float brightness, bool reversed) {
+
+// Determines the colors for all of the gradients between our registered
+// colorstops.  The RGB values are stored in ::r[], ::g[], and ::b[] for
+// safekeeping (and for later calls to updatePixels().)
+//
+// @param rangeStart:    Where shall we begin the rendering?  The values range
+//                       from 0.0 (the first light in the strip) to 1.0 (the
+//                       last light in the strip.)
+// @param rangeStart:    Where shall we stop the rendering?  The values here also
+//                       range from 0.0 to 1.0.
+// @param amountVisible: What percentage of the range should we render?  1.0
+//                       means to render 100% of the range (that is, from
+//                       rangeStart to rangeEnd), while a value like 0.37
+//                       would render 37% of the range (from rangeStart to
+//                       rangeStart + 0.37 * (rangeEnd - rangeStart).)
+// @param brightness:    A constant multiplier used to reduce the intensity of
+//                       the LEDs.  A value of 1.0 uses the original color
+//                       values, while a value of 0.5 would divide the output
+//                       R, G, and B values by 2.
+// @param reversed:      If true, the final color values will be reversed
+//                       before being added to the lights.
+
+void updatePixels(float rangeStart, float rangeEnd, float amountVisible,
+                  float brightness, bool reversed) {
 
     // sanity checks
-    // TODO: complete these
     if (rangeStart > rangeEnd) { // switch values if supplied in the wrong order
         float temp = rangeStart;
         rangeStart = rangeEnd;
@@ -321,8 +356,30 @@ void updatePixels(float rangeStart, float rangeEnd, float amountVisible, float b
     drawPixels(r, g, b, cutoffIndex, reversed, outputLightIndex);
 }
 
-// updatePixels() and drawPixels() are separate to allow pixels
-// to be calculated without immediately sending them to the strip.
+// Renders the RGB values from the given parallel arrays onto the actual light
+// strip.
+//
+// There's a reason this function is separate from updatePixels(): sometimes,
+// we just want the RGB values so that we can rotate or otherwise animate them
+// before rendering.
+//
+// @param r              An array of MAX_OUTPUT_LIGHTS bytes representing the
+//                       current red values that we want to render on the
+//                       light strip.
+// @param g              Ditto for green.
+// @param b              Ditto for blue.
+// @param cutoffIndex    drawPixels() will only touch the lights from 0 to
+//                       cutoffIndex - 1, so you can use this to cut the
+//                       gradients short.  (TODO: instead of just having a
+//                       cutoffIndex, which doesn't make much sense [why must
+//                       we always start at 0?], have both a startIndex and a
+//                       count.
+// @param reversed       If true, the order of rendered pixels will be
+//                       reversed.
+// @param numberOfPixels A not-so-useful parameter that is only used when
+//                       reversed==true.  For now, you should always set this
+//                       to NUMBER_OF_PIXELS.)
+
 void drawPixels(unsigned char r[], unsigned char g[], unsigned char b[], int cutoffIndex, bool reversed, int numberOfPixels) {
     for (int i = 0; i < cutoffIndex; i++) {
         int a;
@@ -339,7 +396,23 @@ void drawPixels(unsigned char r[], unsigned char g[], unsigned char b[], int cut
     strip.show();
 }
 
-void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[], int startIndex, int endIndex, int offset) {
+// Shifts the R, G, and B values within the given range of the given parallel
+// arrays by the given offset.
+//
+// @param r          An array of MAX_OUTPUT_LIGHTS bytes representing the
+//                   current red values that we want to render on the
+//                   light strip.
+// @param g          Ditto for green.
+// @param b          Ditto for blue.
+// @param startIndex The start of the range that our shifting should affect,
+//                   inclusive.
+// @param endIndex   The end of the range that our shifting should affect,
+//                   inclusive.
+// @param offset     The value to shift the lights by.  This can be positive,
+//                   negative, or 0.
+
+void rotatePixels(unsigned char r[], unsigned char g[], unsigned char b[],
+                  int startIndex, int endIndex, int offset) {
     // To save space, rotate one color channel at a time.
     unsigned char buffer[MAX_OUTPUT_LIGHTS];
     for (int i = 0; i<MAX_OUTPUT_LIGHTS; ++i) { buffer[i]=99; }
