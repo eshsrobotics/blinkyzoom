@@ -38,11 +38,11 @@ struct RGB {
 
       const float angle = 2 * PI / 6;
       if (largest == r) {
-        hue = angle * (0 + (g - b)/(largest - smallest));
+        hue = angle * (0 + (g - b) / (largest - smallest));
       } else if (largest == g) {
-        hue = angle * (2 + (b - r)/(largest - smallest));
+        hue = angle * (2 + (b - r) / (largest - smallest));
       } else if (largest == b) {
-        hue = angle * (4 + (r - g)/(largest - smallest));
+        hue = angle * (4 + (r - g) / (largest - smallest));
       }
 
       if (hue < 0) {
@@ -64,22 +64,20 @@ RGB hsv_to_rgb(float hue, float saturation, float value) {
   float t = value * (1 - (1 - f) * saturation);
   float r = 0, g = 0, b = 0;
   switch (i % 6) {
-      case 0: r = value, g = t, b = p; break;
-      case 1: r = q, g = value, b = p; break;
-      case 2: r = p, g = value, b = t; break;
-      case 3: r = p, g = q, b = value; break;
-      case 4: r = t, g = p, b = value; break;
-      case 5: r = value, g = p, b = q; break;
+    case 0: r = value, g = t, b = p; break;
+    case 1: r = q, g = value, b = p; break;
+    case 2: r = p, g = value, b = t; break;
+    case 3: r = p, g = q, b = value; break;
+    case 4: r = t, g = p, b = value; break;
+    case 5: r = value, g = p, b = q; break;
   }
   return RGB(round(r * 255), round(g * 255), round(b * 255));
 }
 
-void rainbow_pattern(int start, int end, float saturation=1.0, float value=1.0) {
 
-  // Clear the light strip.
-  for (int i = 0; i < NUMBER_OF_LIGHTS; ++i) {
-      strip.setPixelColor(i, 0, 0, 0);
-  }
+void rainbow_pattern(long start, long end, float saturation = 1.0, float value = 1.0) {
+
+  strip.clear();
 
   // It's okay for end to be less than start; that just means we'll wrap around.
   //
@@ -89,41 +87,47 @@ void rainbow_pattern(int start, int end, float saturation=1.0, float value=1.0) 
 
   const float hueStart = 0, hueEnd = 1;
   float hue = hueStart;
-  float hueIncrement = (hueEnd - hueStart) / ((start + end + 1) % NUMBER_OF_LIGHTS);
-  int index = start;
+  float hueIncrement = 0;
+  if (start != end) {
+    // If end == start + 1, the increment should be 1.
+    // If end == start + 2, the increment should be 1/2.
+    // If end == start + N, the increment should be 1/N.  This wraps around, so:
+    // If end == start - 1, the increment should be 1/(NUMBER_OF_LIGHTS - 1).
+    // If end == start - 2, the increment should be 1/(NUMBER_OF_LIGHTS - 2).
+    // If end == start - N, the increment should be 1/(NUMBER_OF_LIGHTS - N).
+    hueIncrement = (hueEnd - hueStart) / ((NUMBER_OF_LIGHTS + (end - start)) % NUMBER_OF_LIGHTS);
+  }
+  long index = start;
   while (true) {
     RGB color = hsv_to_rgb(hue, saturation, value);
     strip.setPixelColor(index, color.r, color.g, color.b);
-    hue += hueIncrement;
-    index = (index + 1) % NUMBER_OF_LIGHTS;
     if (index == end) {
       break;
     }
+    hue += hueIncrement;
+    index = (index + 1) % NUMBER_OF_LIGHTS;
   }
   strip.show(); // Update the lights.
 }
 
 int lastUpdateMilliseconds = 0;
-const int DELAY_MILLISECONDS = 100;
-int index = 0;
+const int DELAY_MILLISECONDS = 500;
+long index = 0;
 
 // This code runs once, as the Arduino starts up.
 void setup() {
-
   strip.begin();
-
-  // Clears the lights.
-  rainbow_pattern(0, NUMBER_OF_LIGHTS - 1, 0, 0);
+  strip.clear();
   strip.show();
 }
 
 // This code runs continuously.
 void loop() {
 
-  rainbow_pattern(18, 5, 1.0, 0.4);
-  /*if (millis() - lastUpdateMilliseconds > DELAY_MILLISECONDS) {
-    rainbow_pattern((index + 1) % NUMBER_OF_LIGHTS, index);
-    index = (index + 1) % NUMBER_OF_LIGHTS;
+  //rainbow_pattern(18, 0, 1.0, 0.6);
+  if (millis() - lastUpdateMilliseconds > DELAY_MILLISECONDS) {
+    rainbow_pattern(index + 10, index, 1.0, 0.25);
+    index++;
     lastUpdateMilliseconds = millis();
-  }*/
+  }
 }
