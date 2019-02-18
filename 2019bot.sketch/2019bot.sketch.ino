@@ -1,5 +1,5 @@
 #include <Adafruit_NeoPixel.h>
-#include <math.h> 
+#include <math.h>
 
 // The PWM pin on the Arduino that's sending (non-pwm) signals to the light strips.
 #define ARDUINO_DIGITAL_INPUT_PIN 8
@@ -8,7 +8,6 @@
 //
 // You can use a number smaller than the actual number.  Values above 255 are ignored.
 #define NUMBER_OF_LIGHTS 19
-
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -30,11 +29,11 @@ struct RGB {
     float largest = max(r, max(g, b));
     float smallest = min(r, min(g, b));
     if (largest == smallest) {
-      
+
       // Neutral axis.  Hue is technically undefined.
       hue = 0;
       saturation = 0;
-      
+
     } else {
 
       const float angle = 2 * PI / 6;
@@ -76,6 +75,12 @@ RGB hsv_to_rgb(float hue, float saturation, float value) {
 }
 
 void rainbow_pattern(int start, int end, float saturation=1.0, float value=1.0) {
+
+  // Clear the light strip.
+  for (int i = 0; i < NUMBER_OF_LIGHTS; ++i) {
+      strip.setPixelColor(i, 0, 0, 0);
+  }
+
   // It's okay for end to be less than start; that just means we'll wrap around.
   //
   // It's not okay for start or end to exceed the number of lights, though.
@@ -109,12 +114,12 @@ void setup() {
 
   // Clears the lights.
   rainbow_pattern(0, NUMBER_OF_LIGHTS - 1, 0, 0);
-  strip.show(); 
+  strip.show();
 }
 
 // This code runs continuously.
 void loop() {
-  
+
   rainbow_pattern(18, 5, 1.0, 0.4);
   /*if (millis() - lastUpdateMilliseconds > DELAY_MILLISECONDS) {
     rainbow_pattern((index + 1) % NUMBER_OF_LIGHTS, index);
