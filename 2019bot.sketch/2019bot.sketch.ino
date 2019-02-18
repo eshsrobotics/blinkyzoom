@@ -6,8 +6,13 @@
 
 // The number of WS2812B lights on the light strip that we're driving.
 //
-// You can use a number smaller than the actual number.  Values above 255 are ignored.
+// You can use a number smaller or larger than the actual number.  Values above 255 are ignored.
 #define NUMBER_OF_LIGHTS 19
+
+// Whenever we have loop() run faster than about 60Hz, some of our smaller light strings
+// "go haywire" in a very specific way: every light in the strip suddenly pulses in a dull
+// pink.  Introducing an artificial delay seems to be the best way to overcome this.
+const int MINIMUM_DELAY_MILLISECONDS = 15;
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -18,43 +23,55 @@
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_LIGHTS, ARDUINO_DIGITAL_INPUT_PIN, NEO_GRB + NEO_KHZ800);
 
+// --------------------------------------------------------------------
+// A data structure that makes colors easier to work with.
+// We could probably just as easily work with uint32_t colors directly.
 struct RGB {
   unsigned int r, g, b;
   RGB() : r(0), g(0), b(0) { }
   RGB(int red, int green, int blue) : r(red), g(green), b(blue) { }
   friend RGB hsv_to_rgb(float hue, float saturation, float value);
+  friend void rgb_to_hsv(RGB rgb, float& hue, float& saturation, float& value);
+};
 
-  friend void rgb_to_hsv(RGB rgb, float& hue, float& saturation, float& value) {
-    float r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
-    float largest = max(r, max(g, b));
-    float smallest = min(r, min(g, b));
-    if (largest == smallest) {
+// ----------------------------------------------------------------------------------
+// Converts the given RGB color to a hue, saturation, and value, all between 0 and 1.
+//
+// This function is not yet tested (or needed.)
 
-      // Neutral axis.  Hue is technically undefined.
-      hue = 0;
-      saturation = 0;
+void rgb_to_hsv(RGB rgb, float& hue, float& saturation, float& value) {
+  float r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+  float largest = max(r, max(g, b));
+  float smallest = min(r, min(g, b));
+  if (largest == smallest) {
 
-    } else {
+    // Neutral axis.  Hue is technically undefined.
+    hue = 0;
+    saturation = 0;
 
-      const float angle = 2 * PI / 6;
-      if (largest == r) {
-        hue = angle * (0 + (g - b) / (largest - smallest));
-      } else if (largest == g) {
-        hue = angle * (2 + (b - r) / (largest - smallest));
-      } else if (largest == b) {
-        hue = angle * (4 + (r - g) / (largest - smallest));
-      }
+  } else {
 
-      if (hue < 0) {
-        hue += (2 * PI);
-      }
-
-      saturation = (largest - smallest) / largest;
+    const float angle = 2 * PI / 6;
+    if (largest == r) {
+      hue = angle * (0 + (g - b) / (largest - smallest));
+    } else if (largest == g) {
+      hue = angle * (2 + (b - r) / (largest - smallest));
+    } else if (largest == b) {
+      hue = angle * (4 + (r - g) / (largest - smallest));
     }
 
-    value = largest;
+    if (hue < 0) {
+      hue += (2 * PI);
+    }
+
+    saturation = (largest - smallest) / largest;
   }
-};
+
+  value = largest;
+}
+
+// ----------------------------------------------------------------
+// Converts the given hue, saturation, and value into an RGB color.
 
 RGB hsv_to_rgb(float hue, float saturation, float value) {
   int i = floor(hue * 6);
@@ -75,6 +92,11 @@ RGB hsv_to_rgb(float hue, float saturation, float value) {
 }
 
 
+// -----------------------------------------------------------------
+// Draws rainbows on the LEDs numbered from start to end, inclusive.
+// 
+// It's sllowed for end to be less than start; coloring in that case
+// does the right thing and wraps around the end of the light string.
 void rainbow_pattern(long start, long end, float saturation = 1.0, float value = 1.0) {
 
   strip.clear();
@@ -111,23 +133,34 @@ void rainbow_pattern(long start, long end, float saturation = 1.0, float value =
 }
 
 int lastUpdateMilliseconds = 0;
-const int DELAY_MILLISECONDS = 500;
 long index = 0;
 
+// The delay betwen frames in our looping animation.
+const int DELAY_MILLISECONDS = 10;
+
+// ----------------------------------------------
 // This code runs once, as the Arduino starts up.
+
 void setup() {
   strip.begin();
   strip.clear();
   strip.show();
 }
 
+// ----------------------------
 // This code runs continuously.
 void loop() {
+  int millisecondsSinceLastUpdate = millis() - lastUpdateMilliseconds;
+  if (millisecondsSinceLastUpdate > DELAY_MILLISECONDS) {
 
-  //rainbow_pattern(18, 0, 1.0, 0.6);
-  if (millis() - lastUpdateMilliseconds > DELAY_MILLISECONDS) {
-    rainbow_pattern(index + 10, index, 1.0, 0.25);
+    // Draw the current rainbow.
+    rainbow_pattern(index + 1, index, 1.0, 0.15);
     index++;
     lastUpdateMilliseconds = millis();
+    
+  } else if (millisecondsSinceLastUpdate < MINIMUM_DELAY_MILLISECONDS) {
+
+    // Make sure a minimum number of milliseconds passes between successive frames.
+    delay(MINIMUM_DELAY_MILLISECONDS - millisecondsSinceLastUpdate);
   }
 }
