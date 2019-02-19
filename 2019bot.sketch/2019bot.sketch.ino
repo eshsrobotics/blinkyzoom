@@ -144,6 +144,8 @@ const int DELAY_MILLISECONDS = 2;
 // This code runs once, as the Arduino starts up.
 
 void setup() {
+  Serial.begin(9600); // Set expected baud rate
+  Serial.println("Hello from Arduino");
   strip.begin();
   strip.clear();
   strip.show();
