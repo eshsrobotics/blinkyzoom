@@ -6,13 +6,15 @@
 
 // The number of WS2812B lights on the light strip that we're driving.
 //
-// You can use a number smaller or larger than the actual number.  Values above 255 are ignored.
-#define NUMBER_OF_LIGHTS 19
+// You can use a number smaller or larger than the actual number.
+//
+// In our big light strip, the last 42 lights just can't be lit.  We're not sure why yet.
+#define NUMBER_OF_LIGHTS (198 - 42)
 
 // Whenever we have loop() run faster than about 60Hz, some of our smaller light strings
 // "go haywire" in a very specific way: every light in the strip suddenly pulses in a dull
 // pink.  Introducing an artificial delay seems to be the best way to overcome this.
-const int MINIMUM_DELAY_MILLISECONDS = 15;
+const int MINIMUM_DELAY_MILLISECONDS = 4; // 15
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -136,7 +138,7 @@ int lastUpdateMilliseconds = 0;
 long index = 0;
 
 // The delay betwen frames in our looping animation.
-const int DELAY_MILLISECONDS = 10;
+const int DELAY_MILLISECONDS = 2;
 
 // ----------------------------------------------
 // This code runs once, as the Arduino starts up.
@@ -154,7 +156,7 @@ void loop() {
   if (millisecondsSinceLastUpdate > DELAY_MILLISECONDS) {
 
     // Draw the current rainbow.
-    rainbow_pattern(index + 1, index, 1.0, 0.15);
+    rainbow_pattern(index + 20, index, 1.0, 0.15);
     index++;
     lastUpdateMilliseconds = millis();
     
